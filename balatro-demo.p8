@@ -4,9 +4,6 @@ __lua__
 -- Globals
 -- Game State
 hand_size = 8
-draw_hand_start_x = 15	
-draw_hand_start_y = 80
-draw_hand_gap = 12
 
 -- Input
 mx = 0
@@ -32,10 +29,10 @@ function _update()
         key = stat(31) -- Get the last key pressed
     	if key == "l" then
     		?"LOSERRR"
-	end
+		end
     	if key == "w" then	
         	?"WINNERRR"
-	end
+		end
     end
 
     end
@@ -134,6 +131,9 @@ function draw_background()
     end
 
 function draw_hand(hand)	
+	draw_hand_start_x = 15	
+	draw_hand_start_y = 80
+	draw_hand_gap = 12
 	for x=1,#hand do
     	spr(hand[x].sprite_index, draw_hand_start_x, draw_hand_start_y) 
 		draw_hand_start_x = draw_hand_start_x + draw_hand_gap
