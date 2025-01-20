@@ -2,6 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 -- Globals
+screen_width = 128
+screen_height = 128
 card_width = 8
 card_height = 8
 debug_draw_text = ""
@@ -10,7 +12,19 @@ init_draw = true
 max_selected = 5
 card_selected_count = 0
 
+-- buttons
+btn_width = 16
+btn_height = 16
+btn_gap = 10
+btn_play_hand_sprite_index = 64
+btn_play_hand_pos_x = 32 
+btn_play_hand_pos_y = 100
+btn_discard_hand_sprite_index = 66
+btn_discard_hand_pos_x = 80 
+btn_discard_hand_pos_y = 100
+
 -- Game State
+hand = {}
 hand_size = 8
 
 -- Input
@@ -21,6 +35,9 @@ my = 0
 function _init()
     -- initialize data
     poke(0x5F2D, 0x7)
+	base_deck = create_base_deck()
+	shuffled_deck = shuffle_deck(base_deck)
+	deal_hand(shuffled_deck, hand_size)
 end
 
 function _update()
@@ -31,7 +48,11 @@ function _update()
 
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
-	if btnp(5) then left_click_hand_collision() end
+	if btnp(5) then 
+		left_click_hand_collision()
+		play_button_clicked()
+		discard_button_clicked()
+	end
 
     -- Check keyboard
     --if stat(30) then
@@ -43,7 +64,8 @@ function _draw()
     -- draw stuff
     cls()
     draw_background()
-    draw_hand(hand)
+    draw_hand()
+	draw_play_discard_buttons()
     draw_mouse(mx, my)
 	test_draw_debug() -- TEST	
 end
@@ -108,16 +130,17 @@ function shuffle_deck(deck)
 	return shuffled_deck
 end
 
-function deal_hand(shuffled_deck, hand_size)
-	hand = {}
-	if #shuffled_deck < hand_size then
-		return shuffled_deck	
-	else
-		for x=1,hand_size do
-			add(hand, shuffled_deck[x])				
-			del(shuffled_deck, shuffled_deck[x])
+function deal_hand(shuffled_deck, cards_to_deal)
+	if #shuffled_deck < cards_to_deal then
+		for card in all(shuffled_deck) do
+			add(hand, card)				
+			del(shuffled_deck, card)
 		end
-		return hand
+	else
+		for x=1,cards_to_deal do
+			add(hand, shuffled_deck[1])				
+			del(shuffled_deck, shuffled_deck[1])
+		end
 	end
 end
 
@@ -126,7 +149,7 @@ function draw_background()
     rectfill(0, 0, 128, 128, 3) 
 end
 
-function draw_hand(hand)	
+function draw_hand()	
 	draw_hand_start_x = 15	
 	draw_hand_start_y = 80
 	if init_draw then
@@ -163,6 +186,11 @@ function select_hand(card)
 	end
 end
 
+function draw_play_discard_buttons()
+	spr(btn_play_hand_sprite_index, btn_play_hand_pos_x, btn_play_hand_pos_y, 2, 2)
+	spr(btn_discard_hand_sprite_index, btn_discard_hand_pos_x, btn_discard_hand_pos_y, 2, 2)
+end
+
 -- Inputs
 function left_click_hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
@@ -175,25 +203,51 @@ function left_click_hand_collision()
 	end
 end
 
--- IDK 
-base_deck = create_base_deck()
-shuffled_deck = shuffle_deck(base_deck)
-hand = deal_hand(shuffled_deck, hand_size)
+function mouse_sprite_collision(sx, sy, sw, sh)
+    return mx >= sx and mx < sx + sw and
+           my >= sy and my < sy + sh
+end
+
+function play_button_clicked()
+	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) then
+		for card in all(hand) do
+			if card.selected == true then
+				del(hand, card)	
+			end
+		end
+		deal_hand(shuffled_deck, card_selected_count)
+		init_draw = true
+		card_selected_count = 0
+	end
+end
+
+function discard_button_clicked()
+	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) then
+		for card in all(hand) do
+			if card.selected == true then
+				del(hand, card)	
+			end
+		end
+		deal_hand(shuffled_deck, card_selected_count)
+		init_draw = true
+		card_selected_count = 0
+	end
+end
 
 -- TEST
 function test_draw_debug()
-	print(debug_draw_text, 5, 20, 7)-- TODO test
+	print(debug_draw_text, 5, 20, 7)
 end
 
 __gfx__
-77777777cccccccc7777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
-77788877cccccccc777ccc777775557778777887797779977c777cc775777557778888777799997777cccc777755557778888887799999977cccccc775555557
-77877877cccccccc77c77c777757757778788777797997777c7cc7777575577778777787797777977c7777c775777757777778777777797777777c7777777577
-78888887cccccccc7cccccc77555555778877777799777777cc777777557777778777787797777977c7777c775777757777778777777797777777c7777777577
-78777787cccccccc7c7777c77577775778888777799997777cccc7777555577778778787797797977c77c7c77577575778777877797779777c777c7775777577
-78777787cccccccc7c7777c77577775778778877797799777c77cc777577557778777877797779777c777c777577757778777877797779777c777c7775777577
-78777787cccccccc7c7777c77577775778777887797779977c777cc775777557778887877799979777ccc7c777555757778888777799997777cccc7777555577
-77777777cccccccc7777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
+77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
+7778887777799977777ccc777775557778777887797779977c777cc775777557778888777799997777cccc777755557778888887799999977cccccc775555557
+778778777797797777c77c777757757778788777797997777c7cc7777575577778777787797777977c7777c775777757777778777777797777777c7777777577
+78888887799999977cccccc77555555778877777799777777cc777777557777778777787797777977c7777c775777757777778777777797777777c7777777577
+78777787797777977c7777c77577775778888777799997777cccc7777555577778778787797797977c77c7c77577575778777877797779777c777c7775777577
+78777787797777977c7777c77577775778778877797799777c77cc777577557778777877797779777c777c777577757778777877797779777c777c7775777577
+78777787797777977c7777c77577775778777887797779977c777cc775777557778887877799979777ccc7c777555757778888777799997777cccc7777555577
+77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
 77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
 78788887797999977c7cccc77575555778888887799999977cccccc77555555778888887799999977cccccc77555555778888887799999977cccccc775555557
 78787787797977977c7c77c77575775778777787797777977c7777c77577775778777787797777977c7777c77577775778777787797777977c7777c775777757
