@@ -149,7 +149,7 @@ function draw_mouse(x, y)
 end
 
 function select_hand(card)
-	if card.selected == false and card_selected_count < 5 then 
+	if card.selected == false and card_selected_count < max_selected then 
 		card.selected = true
 		card_selected_count = card_selected_count + 1
 		card.pos_y = card.pos_y - 10
