@@ -7,6 +7,8 @@ card_height = 8
 debug_draw_text = ""
 draw_hand_gap = 4 
 init_draw = true 
+max_selected = 5
+card_selected_count = 0
 
 -- Game State
 hand_size = 8
@@ -119,14 +121,6 @@ function deal_hand(shuffled_deck, hand_size)
 	end
 end
 
-function update_selected(card)
-	if card.selected == false then 
-		card.selected = true
-	else	
-		card.selected = false
-	end
-end
-
 -- Graphics 
 function draw_background()
     rectfill(0, 0, 128, 128, 3) 
@@ -155,10 +149,17 @@ function draw_mouse(x, y)
 end
 
 function select_hand(card)
-	if card.selected == true then 
+	if card.selected == false and card_selected_count < max_selected then 
+		card.selected = true
+		card_selected_count = card_selected_count + 1
 		card.pos_y = card.pos_y - 10
-	else
+	elseif card.selected == true then	
+		card.selected = false
+		card_selected_count = card_selected_count - 1
 		card.pos_y = card.pos_y + 10
+		if card_selected_count == 4 then debug_draw_text = "" end
+	else
+		debug_draw_text = "You can only select 5 \ncards at a time"
 	end
 end
 
@@ -168,9 +169,6 @@ function left_click_hand_collision()
 	for x=1, #hand do
 		if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
 			my >= hand[x].pos_y and my < hand[x].pos_y + card_height then
-				-- Update selected bool
-				update_selected(hand[x])
-				-- Select animation
 				select_hand(hand[x])
 				break
 		end
@@ -184,7 +182,7 @@ hand = deal_hand(shuffled_deck, hand_size)
 
 -- TEST
 function test_draw_debug()
-	print(debug_draw_text, 20, 20, 7)-- TODO test
+	print(debug_draw_text, 5, 20, 7)-- TODO test
 end
 
 __gfx__
