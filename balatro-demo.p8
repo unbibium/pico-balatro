@@ -2,6 +2,12 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 -- Globals
+card_width = 8
+card_height = 8
+debug_draw_text = ""
+draw_hand_gap = 4 
+init_draw = true 
+
 -- Game State
 hand_size = 8
 
@@ -13,7 +19,7 @@ my = 0
 function _init()
     -- initialize data
     poke(0x5F2D, 0x7)
-    end
+end
 
 function _update()
     --register inputs
@@ -22,20 +28,14 @@ function _update()
     -- TODO make mouse less jumpy
 
     -- Check mouse buttons
-    mb = stat(34)
+	-- btn(5) left click, btn(4) right click
+	if btnp(5) then left_click_hand_collision() end
 
     -- Check keyboard
-    if stat(30) then
-        key = stat(31) -- Get the last key pressed
-    	if key == "l" then
-    		?"LOSERRR"
-		end
-    	if key == "w" then	
-        	?"WINNERRR"
-		end
-    end
+    --if stat(30) then
+    --	end
+end
 
-    end
 
 function _draw()
     -- draw stuff
@@ -43,7 +43,8 @@ function _draw()
     draw_background()
     draw_hand(hand)
     draw_mouse(mx, my)
-    end
+	test_draw_debug() -- TEST	
+end
 
 -- Deck
 function create_base_deck()
@@ -75,31 +76,35 @@ function create_base_deck()
 				suit = suits[y],
 				score = ranks[x].base_score,
 				mult = 0,
-				sprite_index = sprite_index
+				sprite_index = sprite_index,
+				-- Resettable params
+				selected = false,
+				pos_x = 0,
+				pos_y = 0
 			}
 			add(base_deck, card_info)
 			card_id = card_id + 1
 			sprite_index = sprite_index + 1
-			end
 		end
+	end
 		
 		return base_deck
-	end
+end
 
 function shuffle_deck(deck)
 	copy_deck = {}
 	for x=1,#deck do
 		add(copy_deck, deck[x])
-		end
+	end
 	shuffled_deck = {}
 
 	for x=1,#copy_deck do
 		random_card = rnd(copy_deck)
 		add(shuffled_deck, random_card)
 		del(copy_deck, random_card)
-		end
-	return shuffled_deck
 	end
+	return shuffled_deck
+end
 
 function deal_hand(shuffled_deck, hand_size)
 	hand = {}
@@ -109,46 +114,78 @@ function deal_hand(shuffled_deck, hand_size)
 		for x=1,hand_size do
 			add(hand, shuffled_deck[x])				
 			del(shuffled_deck, shuffled_deck[x])
-			end
-		return hand
 		end
+		return hand
 	end
+end
 
-function print_hand(hand)
-    -- TEST 
-    hand_as_string = ""
-    for x=1,#hand do 
-        hand_as_string = hand_as_string .. hand[x].rank .. hand[x].suit .. " "
-        --.rank
-        --.suit
-        end
-    ?hand_as_string
-    end
+function update_selected(card)
+	if card.selected == false then 
+		card.selected = true
+	else	
+		card.selected = false
+	end
+end
 
 -- Graphics 
 function draw_background()
     rectfill(0, 0, 128, 128, 3) 
-    end
+end
 
 function draw_hand(hand)	
 	draw_hand_start_x = 15	
 	draw_hand_start_y = 80
-	draw_hand_gap = 12
-	for x=1,#hand do
-    	spr(hand[x].sprite_index, draw_hand_start_x, draw_hand_start_y) 
-		draw_hand_start_x = draw_hand_start_x + draw_hand_gap
+	if init_draw then
+		for x=1,#hand do
+ 	   		spr(hand[x].sprite_index, draw_hand_start_x, draw_hand_start_y) 
+			hand[x].pos_x = draw_hand_start_x
+			hand[x].pos_y = draw_hand_start_y
+			draw_hand_start_x = draw_hand_start_x + card_width + draw_hand_gap
+		end
+		init_draw = false
+	else
+		for x=1,#hand do
+ 	   		spr(hand[x].sprite_index, hand[x].pos_x, hand[x].pos_y) 
 		end
 	end
+end
 
 function draw_mouse(x, y)
 	spr(192, x, y)
+end
+
+function select_hand(card)
+	if card.selected == true then 
+		card.pos_y = card.pos_y - 10
+	else
+		card.pos_y = card.pos_y + 10
 	end
+end
+
+-- Inputs
+function left_click_hand_collision()
+	-- Check if the mouse is colliding with a card in our hand 
+	for x=1, #hand do
+		if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
+			my >= hand[x].pos_y and my < hand[x].pos_y + card_height then
+				-- Update selected bool
+				update_selected(hand[x])
+				-- Select animation
+				select_hand(hand[x])
+				break
+		end
+	end
+end
 
 -- IDK 
 base_deck = create_base_deck()
 shuffled_deck = shuffle_deck(base_deck)
 hand = deal_hand(shuffled_deck, hand_size)
 
+-- TEST
+function test_draw_debug()
+	print(debug_draw_text, 20, 20, 7)-- TODO test
+end
 
 __gfx__
 77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
