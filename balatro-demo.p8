@@ -11,6 +11,22 @@ draw_hand_gap = 4
 init_draw = true 
 max_selected = 5
 card_selected_count = 0
+suits = {'H', 'D', 'C', 'S'}
+ranks = {
+	{rank = 'A', base_chips = 11},
+	{rank = 'K', base_chips = 10},
+	{rank = 'Q', base_chips = 10},
+	{rank = 'J', base_chips = 10},
+	{rank = '10', base_chips = 10},
+	{rank = '9', base_chips = 9},
+	{rank = '8', base_chips = 8},
+	{rank = '7', base_chips = 7},
+	{rank = '6', base_chips = 6},
+	{rank = '5', base_chips = 5},
+	{rank = '4', base_chips = 4},
+	{rank = '3', base_chips = 3},
+	{rank = '2', base_chips = 2},
+}	
 
 -- buttons
 btn_width = 16
@@ -26,10 +42,11 @@ btn_discard_hand_pos_y = 100
 -- Game State
 hand = {}
 selected_cards = {}
+scored_cards = {}
 hand_size = 8
 score = 0
 chips = 0
-mult = 2 -- TODO TEST REMOVE 2 
+mult = 2 -- TODO TEST REMOVE THIS
 
 -- Input
 mx = 0
@@ -73,6 +90,10 @@ function _draw()
 	draw_chips_and_mult()
 	draw_score()
     draw_mouse(mx, my)
+	sort_by_rank_decreasing(hand) -- TODO TEST
+	for card in all(hand) do
+		debug_draw_text = debug_draw_text .. " " .. card.rank
+	end
 	test_draw_debug() -- TEST	
 end
 
@@ -83,7 +104,7 @@ function score_hand()
 	end
 	score = score + (chips * mult)
 	chips = 0
-	mult = 2 -- TEST REMOVE THIS
+	mult = 2 -- TODO TEST REMOVE THIS
 end
 
 function update_selected_cards()
@@ -97,33 +118,23 @@ function update_selected_cards()
 	end
 
 	-- TODO TEST REMOVE BELOW
-	for card in all(selected_cards) do
-		debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
-	end
+	--for card in all(selected_cards) do
+	--	debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
+	--end
 end
 
 -- Deck
 function create_base_deck()
-	suits = {'H', 'D', 'C', 'S'}
-	ranks = {
-		{rank = 'A', base_chips = 11},
-		{rank = 'K', base_chips = 10},
-		{rank = 'Q', base_chips = 10},
-		{rank = 'J', base_chips = 10},
-		{rank = '10', base_chips = 10},
-		{rank = '9', base_chips = 9},
-		{rank = '8', base_chips = 8},
-		{rank = '7', base_chips = 7},
-		{rank = '6', base_chips = 6},
-		{rank = '5', base_chips = 5},
-		{rank = '4', base_chips = 4},
-		{rank = '3', base_chips = 3},
-		{rank = '2', base_chips = 2},
-		}	
-		
 	sprite_index = 0
 	card_id = 1
 	base_deck = {}
+
+	-- Set the sorting order		
+	for i, card in pairs(ranks) do
+    	card.order = 14 - i
+	end
+
+	-- Create deck
 	for x=1,#ranks do
 		for y=1,#suits do
 			card_info = {
@@ -133,6 +144,7 @@ function create_base_deck()
 				chips = ranks[x].base_chips,
 				mult = 0,
 				sprite_index = sprite_index,
+				order = ranks[x].order,
 				-- Resettable params
 				selected = false,
 				pos_x = 0,
@@ -144,7 +156,7 @@ function create_base_deck()
 		end
 	end
 		
-		return base_deck
+	return base_deck
 end
 
 function shuffle_deck(deck)
@@ -174,6 +186,7 @@ function deal_hand(shuffled_deck, cards_to_deal)
 			del(shuffled_deck, shuffled_deck[1])
 		end
 	end
+	sort_by_rank_decreasing(hand)
 end
 
 -- Graphics 
@@ -275,7 +288,7 @@ end
 
 -- Hand Detection
 function is_high_card()
-
+	-- TODO this is the first hand detection we will do
 end
 
 -- Helpers
@@ -286,6 +299,20 @@ function contains(table, value)
         end
     end
     return false
+end
+
+function sort_by_rank_decreasing(cards)
+	-- insertion sort
+	for i=2,#cards do
+		current_order = cards[i].order
+		current = cards[i]
+		j = i - 1
+		while (j >= 1 and current_order > cards[j].order) do
+			cards[j + 1] = cards[j]
+			j = j - 1
+		end
+		cards[j + 1] = current
+	end
 end
 
 -- TEST
