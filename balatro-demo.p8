@@ -26,6 +26,9 @@ btn_discard_hand_pos_y = 100
 -- Game State
 hand = {}
 hand_size = 8
+score = 0
+chips = 0
+mult = 0
 
 -- Input
 mx = 0
@@ -59,34 +62,47 @@ function _update()
     --	end
 end
 
-
 function _draw()
     -- draw stuff
     cls()
     draw_background()
     draw_hand()
 	draw_play_discard_buttons()
+	draw_chips_and_mult()
+	draw_score()
     draw_mouse(mx, my)
 	test_draw_debug() -- TEST	
+end
+
+function score_hand()
+	for card in all(hand) do 
+		if card.selected == true do
+			chips = chips + card.chips
+			mult = mult + card.mult
+		end
+	end
+	score = score + (chips * mult)
+	chips = 0
+	mult = 0
 end
 
 -- Deck
 function create_base_deck()
 	suits = {'H', 'D', 'C', 'S'}
 	ranks = {
-		{rank = 'A', base_score = 11},
-		{rank = 'K', base_score = 10},
-		{rank = 'Q', base_score = 10},
-		{rank = 'J', base_score = 10},
-		{rank = '10', base_score = 10},
-		{rank = '9', base_score = 9},
-		{rank = '8', base_score = 8},
-		{rank = '7', base_score = 7},
-		{rank = '6', base_score = 6},
-		{rank = '5', base_score = 5},
-		{rank = '4', base_score = 4},
-		{rank = '3', base_score = 3},
-		{rank = '2', base_score = 2},
+		{rank = 'A', base_chips = 11},
+		{rank = 'K', base_chips = 10},
+		{rank = 'Q', base_chips = 10},
+		{rank = 'J', base_chips = 10},
+		{rank = '10', base_chips = 10},
+		{rank = '9', base_chips = 9},
+		{rank = '8', base_chips = 8},
+		{rank = '7', base_chips = 7},
+		{rank = '6', base_chips = 6},
+		{rank = '5', base_chips = 5},
+		{rank = '4', base_chips = 4},
+		{rank = '3', base_chips = 3},
+		{rank = '2', base_chips = 2},
 		}	
 		
 	sprite_index = 0
@@ -98,7 +114,7 @@ function create_base_deck()
 				card_id = card_id,	
 				rank = ranks[x].rank,
 				suit = suits[y],
-				score = ranks[x].base_score,
+				chips = ranks[x].base_chips,
 				mult = 0,
 				sprite_index = sprite_index,
 				-- Resettable params
@@ -191,6 +207,14 @@ function draw_play_discard_buttons()
 	spr(btn_discard_hand_sprite_index, btn_discard_hand_pos_x, btn_discard_hand_pos_y, 2, 2)
 end
 
+function draw_chips_and_mult()
+	print(chips .. " X " .. mult, 10, 50, 7)
+end
+
+function draw_score()
+	print(score, 10, 30, 7)
+end
+
 -- Inputs
 function left_click_hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
@@ -210,6 +234,7 @@ end
 
 function play_button_clicked()
 	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) then
+		score_hand()
 		for card in all(hand) do
 			if card.selected == true then
 				del(hand, card)	
