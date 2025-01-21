@@ -25,10 +25,11 @@ btn_discard_hand_pos_y = 100
 
 -- Game State
 hand = {}
+selected_cards = {}
 hand_size = 8
 score = 0
 chips = 0
-mult = 0
+mult = 2 -- TODO TEST REMOVE 2 
 
 -- Input
 mx = 0
@@ -53,6 +54,7 @@ function _update()
 	-- btn(5) left click, btn(4) right click
 	if btnp(5) then 
 		left_click_hand_collision()
+		update_selected_cards()
 		play_button_clicked()
 		discard_button_clicked()
 	end
@@ -75,15 +77,29 @@ function _draw()
 end
 
 function score_hand()
-	for card in all(hand) do 
-		if card.selected == true do
-			chips = chips + card.chips
-			mult = mult + card.mult
-		end
+	for card in all(selected_cards) do
+		chips = chips + card.chips
+		mult = mult + card.mult
 	end
 	score = score + (chips * mult)
 	chips = 0
-	mult = 0
+	mult = 2 -- TEST REMOVE THIS
+end
+
+function update_selected_cards()
+	debug_draw_text = "" -- TODO TEST REMOVE THIS
+	for card in all(hand) do
+		if card.selected == true and not contains(selected_cards, card) then
+			add(selected_cards, card)
+		elseif card.selected == false and contains(selected_cards, card) then
+			del(selected_cards, card)	
+		end
+	end
+
+	-- TODO TEST REMOVE BELOW
+	for card in all(selected_cards) do
+		debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
+	end
 end
 
 -- Deck
@@ -235,10 +251,9 @@ end
 function play_button_clicked()
 	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) then
 		score_hand()
-		for card in all(hand) do
-			if card.selected == true then
-				del(hand, card)	
-			end
+		for card in all(selected_cards) do
+			del(hand, card)	
+			del(selected_cards, card)
 		end
 		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
@@ -248,15 +263,29 @@ end
 
 function discard_button_clicked()
 	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) then
-		for card in all(hand) do
-			if card.selected == true then
-				del(hand, card)	
-			end
+		for card in all(selected_cards) do
+			del(hand, card)	
+			del(selected_cards, card)
 		end
 		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
 		card_selected_count = 0
 	end
+end
+
+-- Hand Detection
+function is_high_card()
+
+end
+
+-- Helpers
+function contains(table, value)
+    for item in all(table) do
+        if item == value then
+            return true
+        end
+    end
+    return false
 end
 
 -- TEST
