@@ -11,6 +11,34 @@ draw_hand_gap = 4
 init_draw = true 
 max_selected = 5
 card_selected_count = 0
+suits = {'H', 'D', 'C', 'S'}
+ranks = {
+	{rank = 'A', base_chips = 11},
+	{rank = 'K', base_chips = 10},
+	{rank = 'Q', base_chips = 10},
+	{rank = 'J', base_chips = 10},
+	{rank = '10', base_chips = 10},
+	{rank = '9', base_chips = 9},
+	{rank = '8', base_chips = 8},
+	{rank = '7', base_chips = 7},
+	{rank = '6', base_chips = 6},
+	{rank = '5', base_chips = 5},
+	{rank = '4', base_chips = 4},
+	{rank = '3', base_chips = 3},
+	{rank = '2', base_chips = 2},
+}	
+hand_types = {
+	["Royal Flush"] = {base_chips = 100, base_mult = 8},
+	["Straight Flush"] = {base_chips = 100, base_mult = 8},
+	["Four of a Kind"] = {base_chips = 60, base_mult = 7},
+	["Full House"] = {base_chips = 40, base_mult = 4},
+	["Flush"] = {base_chips = 35, base_mult = 4},
+	["Straight"] = {base_chips = 30, base_mult = 4},
+	["Three of a Kind"] = {base_chips = 30, base_mult = 3},
+	["Two Pair"] = {base_chips = 20, base_mult = 2},
+	["Pair"] = {base_chips = 10, base_mult = 2},
+	["High Card"] = {base_chips = 5, base_mult = 1}
+}
 
 -- buttons
 btn_width = 16
@@ -25,6 +53,8 @@ btn_discard_hand_pos_y = 100
 
 -- Game State
 hand = {}
+selected_cards = {}
+scored_cards = {}
 hand_size = 8
 score = 0
 chips = 0
@@ -53,6 +83,7 @@ function _update()
 	-- btn(5) left click, btn(4) right click
 	if btnp(5) then 
 		left_click_hand_collision()
+		update_selected_cards()
 		play_button_clicked()
 		discard_button_clicked()
 	end
@@ -71,43 +102,72 @@ function _draw()
 	draw_chips_and_mult()
 	draw_score()
     draw_mouse(mx, my)
-	test_draw_debug() -- TEST	
+	test_draw_debug() -- TODO remove this
 end
 
 function score_hand()
-	for card in all(hand) do 
-		if card.selected == true do
-			chips = chips + card.chips
-			mult = mult + card.mult
-		end
+	-- Score hand type
+	local hand_type = check_hand_type()
+	debug_draw_text = hand_type -- TODO remove
+	chips = chips + hand_types[hand_type].base_chips
+	mult = mult + hand_types[hand_type].base_mult
+
+	-- Score cards 
+	for card in all(scored_cards) do
+		chips = chips + card.chips
+		mult = mult + card.mult
 	end
 	score = score + (chips * mult)
 	chips = 0
 	mult = 0
 end
 
+function update_selected_cards()
+	for card in all(hand) do
+		if card.selected == true and not contains(selected_cards, card) then
+			add(selected_cards, card)
+		elseif card.selected == false and contains(selected_cards, card) then
+			del(selected_cards, card)	
+		end
+	end
+end
+
+function check_hand_type()
+	if is_royal_flush() then
+		return "Royal Flush"	
+	elseif is_straight_flush() then
+		return "Straight Flush"
+	elseif is_four_of_a_kind() then
+		return "Four of a Kind"
+	elseif is_full_house() then
+		return "Full House"
+	elseif is_flush() then
+		return "Flush"
+	elseif is_straight() then
+		return "Straight"
+	elseif is_three_of_a_kind() then
+		return "Three of a Kind"
+	elseif is_two_pair() then
+		return "Two Pair"
+	elseif is_pair() then
+		return "Pair"	
+	elseif is_high_card() then
+		return "High Card"
+	end
+end
+
 -- Deck
 function create_base_deck()
-	suits = {'H', 'D', 'C', 'S'}
-	ranks = {
-		{rank = 'A', base_chips = 11},
-		{rank = 'K', base_chips = 10},
-		{rank = 'Q', base_chips = 10},
-		{rank = 'J', base_chips = 10},
-		{rank = '10', base_chips = 10},
-		{rank = '9', base_chips = 9},
-		{rank = '8', base_chips = 8},
-		{rank = '7', base_chips = 7},
-		{rank = '6', base_chips = 6},
-		{rank = '5', base_chips = 5},
-		{rank = '4', base_chips = 4},
-		{rank = '3', base_chips = 3},
-		{rank = '2', base_chips = 2},
-		}	
-		
 	sprite_index = 0
 	card_id = 1
 	base_deck = {}
+
+	-- Set the sorting order		
+	for i, card in pairs(ranks) do
+    	card.order = 14 - i
+	end
+
+	-- Create deck
 	for x=1,#ranks do
 		for y=1,#suits do
 			card_info = {
@@ -117,6 +177,7 @@ function create_base_deck()
 				chips = ranks[x].base_chips,
 				mult = 0,
 				sprite_index = sprite_index,
+				order = ranks[x].order,
 				-- Resettable params
 				selected = false,
 				pos_x = 0,
@@ -128,7 +189,7 @@ function create_base_deck()
 		end
 	end
 		
-		return base_deck
+	return base_deck
 end
 
 function shuffle_deck(deck)
@@ -158,6 +219,7 @@ function deal_hand(shuffled_deck, cards_to_deal)
 			del(shuffled_deck, shuffled_deck[1])
 		end
 	end
+	sort_by_rank_decreasing(hand)
 end
 
 -- Graphics 
@@ -235,10 +297,22 @@ end
 function play_button_clicked()
 	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) then
 		score_hand()
-		for card in all(hand) do
-			if card.selected == true then
-				del(hand, card)	
-			end
+		for card in all(selected_cards) do
+			del(hand, card)	
+			del(selected_cards, card)
+		end
+		deal_hand(shuffled_deck, card_selected_count)
+		init_draw = true
+		card_selected_count = 0
+		scored_cards = {}
+	end
+end
+
+function discard_button_clicked()
+	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) then
+		for card in all(selected_cards) do
+			del(hand, card)	
+			del(selected_cards, card)
 		end
 		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
@@ -246,22 +320,257 @@ function play_button_clicked()
 	end
 end
 
-function discard_button_clicked()
-	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) then
-		for card in all(hand) do
-			if card.selected == true then
-				del(hand, card)	
+-- Hand Detection
+function is_royal_flush()
+	if contains_royal(selected_cards) and contains_flush(selected_cards) then
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_straight_flush()
+	if contains_flush(selected_cards) and contains_straight(selected_cards) then	
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_four_of_a_kind()
+	if contains_four_of_a_kind(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		for x=1, #selected_cards - 3 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank and selected_cards[x].rank == selected_cards[x + 3].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				add(scored_cards, selected_cards[x + 2])	
+				add(scored_cards, selected_cards[x + 3])	
+				return true
 			end
 		end
-		deal_hand(shuffled_deck, card_selected_count)
-		init_draw = true
-		card_selected_count = 0
+	end
+	return false
+end
+
+function is_full_house()
+	if contains_pair(selected_cards) and contains_three_of_a_kind(selected_cards) then
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_flush()
+	if contains_flush(selected_cards) then	
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_straight()
+	if contains_straight(selected_cards) then	
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_three_of_a_kind()
+	if contains_three_of_a_kind(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		for x=1, #selected_cards - 2 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				add(scored_cards, selected_cards[x + 2])	
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function is_two_pair()
+	if contains_two_pair(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		local times = 0
+		for x=1, #selected_cards - 1 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				times = times + 1
+				if times == 2 then
+					return true
+				end
+				x = x + 2
+			end
+		end
+	end
+	return false
+end
+
+function is_pair()
+	if contains_pair(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		for x=1, #selected_cards - 1 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function is_high_card()
+	sort_by_rank_decreasing(selected_cards)
+	add(scored_cards, selected_cards[1])
+	return true
+end
+
+-- Helpers
+function contains(table, value)
+	-- is there a value in a table
+    for item in all(table) do
+        if item == value then
+            return true
+        end
+    end
+    return false
+end
+
+function contains_royal(cards)
+	if #cards == 5 then
+		sort_by_rank_decreasing(cards)
+		local start_order = 13
+		for x=1, #cards do
+			if start_order != cards[x].order then
+				return false
+			end
+			start_order = start_order - 1
+		end
+		return true 
+	end
+	return false
+end
+
+function contains_four_of_a_kind(cards)
+	if contains_multiple_of_a_rank(cards, 4) then
+		return true
+	end
+	return false
+end
+
+function contains_flush(cards)
+	local suit_arr = {}
+	for card in all(cards) do 
+		add(suit_arr, card.suit)
+	end
+	for suit in all(suit_arr) do
+		if count(suit_arr, suit) == 5 then				
+			return true
+		end
+	end
+	return false
+end
+
+function contains_straight(cards)
+	if #cards == 5 then
+		sort_by_rank_decreasing(cards)
+		for x=1,#cards - 1 do
+			if cards[x].order != cards[x + 1].order + 1 then
+				return false	
+			end
+		end
+		return true 
+	else
+		return false
+	end
+end
+
+function contains_three_of_a_kind(cards)
+	if contains_multiple_of_a_rank(cards, 3) then
+		return true
+	end
+	return false
+end
+
+function contains_two_pair(cards)
+	if #cards >= 4 then
+		local order_arr = {}
+		for card in all(cards) do
+			add(order_arr, card.order)		
+		end
+		local times = 0
+		local first_pair = 0
+		for order_num in all(order_arr) do 
+			if count(order_arr, order_num) == 2 and order_num != first_pair then
+				times = times + 1
+				first_pair = order_num
+				if times == 2 then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+function contains_pair(cards)
+	if contains_multiple_of_a_rank(cards, 2) then
+		return true
+	end
+	return false
+end
+
+function contains_multiple_of_a_rank(cards, num)
+	if #cards >= num then
+		local order_arr = {}
+		for card in all(cards) do
+			add(order_arr, card.order)		
+		end
+		for order_num in all(order_arr) do 
+			if count(order_arr, order_num) == num then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function add_all_cards_to_score(cards)
+	sort_by_rank_decreasing(cards)
+	for card in all(cards) do
+		add(scored_cards, card)
+	end
+end
+
+function sort_by_rank_decreasing(cards)
+	-- insertion sort
+	for i=2,#cards do
+		current_order = cards[i].order
+		current = cards[i]
+		j = i - 1
+		while (j >= 1 and current_order > cards[j].order) do
+			cards[j + 1] = cards[j]
+			j = j - 1
+		end
+		cards[j + 1] = current
 	end
 end
 
 -- TEST
 function test_draw_debug()
 	print(debug_draw_text, 5, 20, 7)
+end
+
+function test_draw_table(table)
+	for card in all(table) do
+		debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
+	end
 end
 
 __gfx__
