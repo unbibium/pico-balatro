@@ -133,7 +133,17 @@ function update_selected_cards()
 end
 
 function check_hand_type()
-	if is_straight() then
+	if is_royal_flush() then
+		return "Royal Flush"	
+	elseif is_straight_flush() then
+		return "Straight Flush"
+	elseif is_four_of_a_kind() then
+		return "Four of a Kind"
+	elseif is_full_house() then
+		return "Full House"
+	elseif is_flush() then
+		return "Flush"
+	elseif is_straight() then
 		return "Straight"
 	elseif is_three_of_a_kind() then
 		return "Three of a Kind"
@@ -311,12 +321,57 @@ function discard_button_clicked()
 end
 
 -- Hand Detection
+function is_royal_flush()
+	if contains_royal(selected_cards) and contains_flush(selected_cards) then
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_straight_flush()
+	if contains_flush(selected_cards) and contains_straight(selected_cards) then	
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_four_of_a_kind()
+	if contains_four_of_a_kind(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		for x=1, #selected_cards - 3 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank and selected_cards[x].rank == selected_cards[x + 3].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				add(scored_cards, selected_cards[x + 2])	
+				add(scored_cards, selected_cards[x + 3])	
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function is_full_house()
+	if contains_pair(selected_cards) and contains_three_of_a_kind(selected_cards) then
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
+function is_flush()
+	if contains_flush(selected_cards) then	
+		add_all_cards_to_score(selected_cards)
+		return true
+	end
+	return false
+end
+
 function is_straight()
 	if contains_straight(selected_cards) then	
-		sort_by_rank_decreasing(selected_cards)
-		for card in all(selected_cards) do
-			add(scored_cards, card)
-		end
+		add_all_cards_to_score(selected_cards)
 		return true
 	end
 	return false
@@ -378,12 +433,48 @@ end
 
 -- Helpers
 function contains(table, value)
+	-- is there a value in a table
     for item in all(table) do
         if item == value then
             return true
         end
     end
     return false
+end
+
+function contains_royal(cards)
+	if #cards == 5 then
+		sort_by_rank_decreasing(cards)
+		local start_order = 13
+		for x=1, #cards do
+			if start_order != cards[x].order then
+				return false
+			end
+			start_order = start_order - 1
+		end
+		return true 
+	end
+	return false
+end
+
+function contains_four_of_a_kind(cards)
+	if contains_multiple_of_a_rank(cards, 4) then
+		return true
+	end
+	return false
+end
+
+function contains_flush(cards)
+	local suit_arr = {}
+	for card in all(cards) do 
+		add(suit_arr, card.suit)
+	end
+	for suit in all(suit_arr) do
+		if count(suit_arr, suit) == 5 then				
+			return true
+		end
+	end
+	return false
 end
 
 function contains_straight(cards)
@@ -401,16 +492,8 @@ function contains_straight(cards)
 end
 
 function contains_three_of_a_kind(cards)
-	if #cards >= 3 then
-		local order_arr = {}
-		for card in all(cards) do
-			add(order_arr, card.order)		
-		end
-		for order_num in all(order_arr) do 
-			if count(order_arr, order_num) == 3 then
-				return true
-			end
-		end
+	if contains_multiple_of_a_rank(cards, 3) then
+		return true
 	end
 	return false
 end
@@ -437,18 +520,32 @@ function contains_two_pair(cards)
 end
 
 function contains_pair(cards)
-	if #cards >= 2 then
+	if contains_multiple_of_a_rank(cards, 2) then
+		return true
+	end
+	return false
+end
+
+function contains_multiple_of_a_rank(cards, num)
+	if #cards >= num then
 		local order_arr = {}
 		for card in all(cards) do
 			add(order_arr, card.order)		
 		end
 		for order_num in all(order_arr) do 
-			if count(order_arr, order_num) == 2 then
+			if count(order_arr, order_num) == num then
 				return true
 			end
 		end
 	end
 	return false
+end
+
+function add_all_cards_to_score(cards)
+	sort_by_rank_decreasing(cards)
+	for card in all(cards) do
+		add(scored_cards, card)
+	end
 end
 
 function sort_by_rank_decreasing(cards)
