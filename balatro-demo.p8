@@ -27,6 +27,18 @@ ranks = {
 	{rank = '3', base_chips = 3},
 	{rank = '2', base_chips = 2},
 }	
+hand_types = {
+	["Royal Flush"] = {base_chips = 100, base_mult = 8},
+	["Straight Flush"] = {base_chips = 100, base_mult = 8},
+	["Four of a Kind"] = {base_chips = 60, base_mult = 7},
+	["Full House"] = {base_chips = 40, base_mult = 4},
+	["Flush"] = {base_chips = 35, base_mult = 4},
+	["Straight"] = {base_chips = 30, base_mult = 4},
+	["Three of a Kind"] = {base_chips = 30, base_mult = 3},
+	["Two Pair"] = {base_chips = 20, base_mult = 2},
+	["Pair"] = {base_chips = 10, base_mult = 2},
+	["High Card"] = {base_chips = 5, base_mult = 1}
+}
 
 -- buttons
 btn_width = 16
@@ -46,7 +58,7 @@ scored_cards = {}
 hand_size = 8
 score = 0
 chips = 0
-mult = 2 -- TODO TEST REMOVE THIS
+mult = 0
 
 -- Input
 mx = 0
@@ -90,25 +102,27 @@ function _draw()
 	draw_chips_and_mult()
 	draw_score()
     draw_mouse(mx, my)
-	sort_by_rank_decreasing(hand) -- TODO TEST
-	for card in all(hand) do
-		debug_draw_text = debug_draw_text .. " " .. card.rank
-	end
-	test_draw_debug() -- TEST	
+	test_draw_debug() -- TODO remove this
 end
 
 function score_hand()
-	for card in all(selected_cards) do
+	-- Score hand type
+	local hand_type = check_hand_type()
+	debug_draw_text = hand_type -- TODO remove
+	chips = chips + hand_types[hand_type].base_chips
+	mult = mult + hand_types[hand_type].base_mult
+
+	-- Score cards 
+	for card in all(scored_cards) do
 		chips = chips + card.chips
 		mult = mult + card.mult
 	end
 	score = score + (chips * mult)
 	chips = 0
-	mult = 2 -- TODO TEST REMOVE THIS
+	mult = 0
 end
 
 function update_selected_cards()
-	debug_draw_text = "" -- TODO TEST REMOVE THIS
 	for card in all(hand) do
 		if card.selected == true and not contains(selected_cards, card) then
 			add(selected_cards, card)
@@ -116,11 +130,20 @@ function update_selected_cards()
 			del(selected_cards, card)	
 		end
 	end
+end
 
-	-- TODO TEST REMOVE BELOW
-	--for card in all(selected_cards) do
-	--	debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
-	--end
+function check_hand_type()
+	if is_straight() then
+		return "Straight"
+	elseif is_three_of_a_kind() then
+		return "Three of a Kind"
+	elseif is_two_pair() then
+		return "Two Pair"
+	elseif is_pair() then
+		return "Pair"	
+	elseif is_high_card() then
+		return "High Card"
+	end
 end
 
 -- Deck
@@ -271,6 +294,7 @@ function play_button_clicked()
 		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
 		card_selected_count = 0
+		scored_cards = {}
 	end
 end
 
@@ -287,8 +311,69 @@ function discard_button_clicked()
 end
 
 -- Hand Detection
+function is_straight()
+	if contains_straight(selected_cards) then	
+		sort_by_rank_decreasing(selected_cards)
+		for card in all(selected_cards) do
+			add(scored_cards, card)
+		end
+		return true
+	end
+	return false
+end
+
+function is_three_of_a_kind()
+	if contains_three_of_a_kind(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		for x=1, #selected_cards - 2 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				add(scored_cards, selected_cards[x + 2])	
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function is_two_pair()
+	if contains_two_pair(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		local times = 0
+		for x=1, #selected_cards - 1 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				times = times + 1
+				if times == 2 then
+					return true
+				end
+				x = x + 2
+			end
+		end
+	end
+	return false
+end
+
+function is_pair()
+	if contains_pair(selected_cards) then
+		sort_by_rank_decreasing(selected_cards)
+		for x=1, #selected_cards - 1 do
+			if selected_cards[x].rank == selected_cards[x + 1].rank then
+				add(scored_cards, selected_cards[x])	
+				add(scored_cards, selected_cards[x + 1])	
+				return true
+			end
+		end
+	end
+	return false
+end
+
 function is_high_card()
-	-- TODO this is the first hand detection we will do
+	sort_by_rank_decreasing(selected_cards)
+	add(scored_cards, selected_cards[1])
+	return true
 end
 
 -- Helpers
@@ -299,6 +384,71 @@ function contains(table, value)
         end
     end
     return false
+end
+
+function contains_straight(cards)
+	if #cards == 5 then
+		sort_by_rank_decreasing(cards)
+		for x=1,#cards - 1 do
+			if cards[x].order != cards[x + 1].order + 1 then
+				return false	
+			end
+		end
+		return true 
+	else
+		return false
+	end
+end
+
+function contains_three_of_a_kind(cards)
+	if #cards >= 3 then
+		local order_arr = {}
+		for card in all(cards) do
+			add(order_arr, card.order)		
+		end
+		for order_num in all(order_arr) do 
+			if count(order_arr, order_num) == 3 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function contains_two_pair(cards)
+	if #cards >= 4 then
+		local order_arr = {}
+		for card in all(cards) do
+			add(order_arr, card.order)		
+		end
+		local times = 0
+		local first_pair = 0
+		for order_num in all(order_arr) do 
+			if count(order_arr, order_num) == 2 and order_num != first_pair then
+				times = times + 1
+				first_pair = order_num
+				if times == 2 then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+function contains_pair(cards)
+	if #cards >= 2 then
+		local order_arr = {}
+		for card in all(cards) do
+			add(order_arr, card.order)		
+		end
+		for order_num in all(order_arr) do 
+			if count(order_arr, order_num) == 2 then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 function sort_by_rank_decreasing(cards)
@@ -318,6 +468,12 @@ end
 -- TEST
 function test_draw_debug()
 	print(debug_draw_text, 5, 20, 7)
+end
+
+function test_draw_table(table)
+	for card in all(table) do
+		debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
+	end
 end
 
 __gfx__
