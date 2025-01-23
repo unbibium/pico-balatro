@@ -7,6 +7,7 @@ screen_height = 128
 card_width = 8
 card_height = 8
 debug_draw_text = ""
+hand_type_text = ""
 draw_hand_gap = 4 
 init_draw = true 
 max_selected = 5
@@ -101,17 +102,12 @@ function _draw()
 	draw_play_discard_buttons()
 	draw_chips_and_mult()
 	draw_score()
+	draw_hand_type(hand_type_text)
     draw_mouse(mx, my)
 	test_draw_debug() -- TODO remove this
 end
 
 function score_hand()
-	-- Score hand type
-	local hand_type = check_hand_type()
-	debug_draw_text = hand_type -- TODO remove
-	chips = chips + hand_types[hand_type].base_chips
-	mult = mult + hand_types[hand_type].base_mult
-
 	-- Score cards 
 	for card in all(scored_cards) do
 		chips = chips + card.chips
@@ -120,6 +116,7 @@ function score_hand()
 	score = score + (chips * mult)
 	chips = 0
 	mult = 0
+	hand_type_text = ""
 end
 
 function update_selected_cards()
@@ -129,6 +126,15 @@ function update_selected_cards()
 		elseif card.selected == false and contains(selected_cards, card) then
 			del(selected_cards, card)	
 		end
+	end
+	scored_cards = {}
+	local hand_type = check_hand_type()
+	if hand_type ~= "None" then
+		hand_type_text = hand_type
+		chips = 0
+		mult = 0
+		chips = chips + hand_types[hand_type].base_chips
+		mult = mult + hand_types[hand_type].base_mult
 	end
 end
 
@@ -153,6 +159,9 @@ function check_hand_type()
 		return "Pair"	
 	elseif is_high_card() then
 		return "High Card"
+	else
+		hand_type_text = ""
+		return "None"
 	end
 end
 
@@ -277,6 +286,10 @@ function draw_score()
 	print(score, 10, 30, 7)
 end
 
+function draw_hand_type()
+	print(hand_type_text, 45, 55, 7)	
+end
+
 -- Inputs
 function left_click_hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
@@ -295,7 +308,7 @@ function mouse_sprite_collision(sx, sy, sw, sh)
 end
 
 function play_button_clicked()
-	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) then
+	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 then
 		score_hand()
 		for card in all(selected_cards) do
 			del(hand, card)	
@@ -309,7 +322,7 @@ function play_button_clicked()
 end
 
 function discard_button_clicked()
-	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) then
+	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 then
 		for card in all(selected_cards) do
 			del(hand, card)	
 			del(selected_cards, card)
@@ -426,9 +439,12 @@ function is_pair()
 end
 
 function is_high_card()
-	sort_by_rank_decreasing(selected_cards)
-	add(scored_cards, selected_cards[1])
-	return true
+	if #selected_cards > 0 then
+		sort_by_rank_decreasing(selected_cards)
+		add(scored_cards, selected_cards[1])
+		return true
+	end
+	return false
 end
 
 -- Helpers
