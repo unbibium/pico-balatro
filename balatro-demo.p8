@@ -63,6 +63,11 @@ hand_size = 8
 score = 0
 chips = 0
 mult = 0
+hands = 4
+discards = 4
+money = 4
+round = 1
+goal_score = 300
 
 -- Input
 mx = 0
@@ -107,6 +112,9 @@ function _draw()
 	draw_score()
 	draw_hand_type(hand_type_text)
 	draw_deck()
+	draw_hands_and_discards()
+	draw_money()
+	draw_round_and_score()
     draw_mouse(mx, my)
 	test_draw_debug() -- TODO remove this
 end
@@ -167,6 +175,47 @@ function check_hand_type()
 		hand_type_text = ""
 		return "None"
 	end
+end
+
+function update_round_and_score() 
+	round = round + 1
+	goal_score = goal_score + 150
+end
+
+function win_state()
+	update_round_and_score()	
+	card_selected_count = 0
+	scored_cards = {}
+	hands = 4
+	discards = 4
+	score = 0
+	shuffled_deck = shuffle_deck(base_deck)
+	reset_card_params()
+	selected_cards = {}
+	scored_cards = {}
+	hand = {}
+	init_draw = true
+	deal_hand(shuffled_deck, hand_size)
+
+	-- TODO show shop
+end
+
+function lose_state()
+	round = 1
+	goal_score = 300
+	card_selected_count = 0
+	scored_cards = {}
+	hands = 4
+	discards = 4
+	score = 0
+	shuffled_deck = shuffle_deck(base_deck)
+	reset_card_params()
+	selected_cards = {}
+	scored_cards = {}
+	hand = {}
+	init_draw = true
+	deal_hand(shuffled_deck, hand_size)
+	money = 4
 end
 
 -- Deck
@@ -235,6 +284,16 @@ function deal_hand(shuffled_deck, cards_to_deal)
 	sort_by_rank_decreasing(hand)
 end
 
+function reset_card_params()
+	for card in all(shuffled_deck) do
+		if card.pos_x != 0 or card.pos_y != 0 or card.selected != false then
+			card.pos_x = 0
+			card.pos_y = 0
+			card.selected = false
+		end
+	end
+end
+
 -- Graphics 
 function draw_background()
     rectfill(0, 0, 128, 128, 3) 
@@ -283,11 +342,11 @@ function draw_play_discard_buttons()
 end
 
 function draw_chips_and_mult()
-	print(chips .. " X " .. mult, 10, 50, 7)
+	print(chips .. " X " .. mult, 2, 50, 7)
 end
 
 function draw_score()
-	print(score, 10, 30, 7)
+	print("Score:" .. score, 2, 40, 7)
 end
 
 function draw_hand_type()
@@ -297,6 +356,20 @@ end
 function draw_deck()
 	spr(deck_sprite_index, deck_sprite_pos_x, deck_sprite_pos_y, 2, 2)	
 	print(#shuffled_deck .. "/" .. #base_deck, deck_sprite_pos_x, deck_sprite_pos_y + 20, 7)
+end
+
+function draw_hands_and_discards()
+	print("H:" .. hands, 2, 100, 7)
+	print("D:" .. discards, 2, 110, 7)
+end
+
+function draw_money()
+	print("M:$" .. money, 2, 120, 7)
+end
+
+function draw_round_and_score()
+	print("Round:" .. round, 2, 10, 7)
+	print("Goal Score:" .. goal_score, 2, 20, 7)
 end
 
 -- Inputs
@@ -317,21 +390,30 @@ function mouse_sprite_collision(sx, sy, sw, sh)
 end
 
 function play_button_clicked()
-	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 then
+	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 and hands > 0 then
 		score_hand()
-		for card in all(selected_cards) do
-			del(hand, card)	
-			del(selected_cards, card)
+		if score >= goal_score then
+			win_state()
+		else
+			for card in all(selected_cards) do
+				del(hand, card)	
+				del(selected_cards, card)
+			end
+			deal_hand(shuffled_deck, card_selected_count)
+			init_draw = true
+			card_selected_count = 0
+			scored_cards = {}
+			hands = hands - 1
+			debug_draw_text = ""
+			if hands == 0 then
+				lose_state()
+			end
 		end
-		deal_hand(shuffled_deck, card_selected_count)
-		init_draw = true
-		card_selected_count = 0
-		scored_cards = {}
 	end
 end
 
 function discard_button_clicked()
-	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 then
+	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 and discards > 0 then
 		for card in all(selected_cards) do
 			del(hand, card)	
 			del(selected_cards, card)
@@ -339,6 +421,8 @@ function discard_button_clicked()
 		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
 		card_selected_count = 0
+		discards = discards - 1
+		debug_draw_text = ""
 	end
 end
 
@@ -589,7 +673,7 @@ end
 
 -- TEST
 function test_draw_debug()
-	print(debug_draw_text, 5, 20, 7)
+	print(debug_draw_text, 50, 35, 7)
 end
 
 function test_draw_table(table)
