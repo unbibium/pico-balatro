@@ -77,6 +77,7 @@ my = 0
 function _init()
     -- initialize data
     poke(0x5F2D, 0x7)
+	poke(0x5f2d, 0x3) -- mouse stuff?
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
 	deal_hand(shuffled_deck, hand_size)
@@ -86,7 +87,6 @@ function _update()
     --register inputs
     mx = stat(32)
     my = stat(33)
-    -- TODO make mouse less jumpy
 
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
