@@ -76,6 +76,7 @@ money = 4
 round = 1
 goal_score = 300
 in_shop = false
+money_earned_per_round = 3
 
 -- Input
 mx = 0
@@ -201,6 +202,9 @@ end
 
 function win_state()
 	update_round_and_score()	
+	cash_out_interest()
+	cash_out_money_earned_per_round()
+	cash_out_money_earned_per_hand_remaining()
 	card_selected_count = 0
 	scored_cards = {}
 	hands = 4
@@ -233,6 +237,33 @@ function lose_state()
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
+end
+
+-- Money
+function cash_out_interest()
+	if money >= 25 then
+		money = money + 5
+	elseif money >= 5 then
+		local interest = flr(money / 5)		
+		money = money + interest
+	end
+end
+
+function cash_out_money_earned_per_round()
+	if money_earned_per_round == 3 then
+		money = money + money_earned_per_round
+		money_earned_per_round = 4
+	elseif money_earned_per_round == 4 then
+		money = money + money_earned_per_round
+		money_earned_per_round = 5
+	else	
+		money = money + money_earned_per_round
+		money_earned_per_round = 3
+	end
+end
+
+function cash_out_money_earned_per_hand_remaining()
+	money = money + hands
 end
 
 -- Deck
@@ -417,6 +448,7 @@ end
 
 function play_button_clicked()
 	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 and hands > 0 then
+		hands = hands - 1
 		score_hand()
 		if score >= goal_score then
 			win_state()
@@ -430,7 +462,6 @@ function play_button_clicked()
 			init_draw = true
 			card_selected_count = 0
 			scored_cards = {}
-			hands = hands - 1
 			debug_draw_text = ""
 			if hands == 0 then
 				lose_state()
