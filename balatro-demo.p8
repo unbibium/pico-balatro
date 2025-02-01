@@ -29,17 +29,273 @@ ranks = {
 	{rank = '2', base_chips = 2},
 }	
 hand_types = {
-	["Royal Flush"] = {base_chips = 100, base_mult = 8},
-	["Straight Flush"] = {base_chips = 100, base_mult = 8},
-	["Four of a Kind"] = {base_chips = 60, base_mult = 7},
-	["Full House"] = {base_chips = 40, base_mult = 4},
-	["Flush"] = {base_chips = 35, base_mult = 4},
-	["Straight"] = {base_chips = 30, base_mult = 4},
-	["Three of a Kind"] = {base_chips = 30, base_mult = 3},
-	["Two Pair"] = {base_chips = 20, base_mult = 2},
-	["Pair"] = {base_chips = 10, base_mult = 2},
-	["High Card"] = {base_chips = 5, base_mult = 1}
+	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["Four of a Kind"] = {base_chips = 60, base_mult = 7, level = 1},
+	["Full House"] = {base_chips = 40, base_mult = 4, level = 1},
+	["Flush"] = {base_chips = 35, base_mult = 4, level = 1},
+	["Straight"] = {base_chips = 30, base_mult = 4, level = 1},
+	["Three of a Kind"] = {base_chips = 30, base_mult = 3, level = 1},
+	["Two Pair"] = {base_chips = 20, base_mult = 2, level = 1},
+	["Pair"] = {base_chips = 10, base_mult = 2, level = 1},
+	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
+special_cards = {
+	Jokers = {
+		["Add 4 Mult"] = {
+			price = 2,
+			effect = function()
+				mult = mult + 4
+			end,
+			sprite_index = 128,
+			description = "Adds 4 to your mult"
+		},
+		["Add 8 Mult"] = {
+			price = 3,
+			effect = function()
+				mult = mult + 8
+			end,
+			sprite_index = 129, 
+			description = "Adds 8 to your mult"
+		},
+		["Add 12 Mult"] = {
+			price = 4,
+			effect = function()
+				mult = mult + 12 
+			end,
+			sprite_index = 130, 
+			description = "Adds 12 to your mult"
+		},
+		["Add Random Mult"] = {
+			price = 4,
+			effect = function()
+				mult = mult + flr(rnd(25))
+			end,
+			sprite_index = 131, 
+			description = "Adds a random amount of mult. Lowest being 0, highest being 25"
+		},
+		["Times 1.5 Mult"] = {
+			price = 6,
+			effect = function()
+				mult = mult * 1.5 
+			end,
+			sprite_index = 132, 
+			description = "Multiplies your mult by 1.5"
+		},
+		["Times 2 Mult"] = {
+			price = 7,
+			effect = function()
+				mult = mult * 2 
+			end,
+			sprite_index = 133, 
+			description = "Multiplies your mult by 2"
+		},
+		["Times 3 Mult"] = {
+			price = 8,
+			effect = function()
+				mult = mult * 3 
+			end,
+			sprite_index = 134, 
+			description = "Multiplies your mult by 3"
+		},
+		["Add 30 Chips"] = {
+			price = 2,
+			effect = function()
+				chips = chips + 30
+			end,
+			sprite_index = 135, 
+			description = "Adds 30 to your chips"
+		},
+		["Add 60 Chips"] = {
+			price = 3,
+			effect = function()
+				chips = chips + 60
+			end,
+			sprite_index = 136, 
+			description = "Adds 60 to your chips"
+		},
+		["Add 90 Chips"] = {
+			price = 4,
+			effect = function()
+				chips = chips + 90
+			end,
+			sprite_index = 137, 
+			description = "Adds 90 to your chips"
+		},
+		["Add Random Chips"] = {
+			price = 5,
+			effect = function()
+				local chip_options = {}
+				local step = 10 
+				local amount = 0
+				while (amount <= 150) do
+					add(chip_options, amount)
+					amount = amount + step
+				end
+				chips = chips + rnd(chip_options)
+			end,
+			sprite_index = 138, 
+			description = "Adds a random amount of chips. Lowest being 0, highest being 150"
+		}
+	},
+	Planets = {
+		["Level Up Royal Flush"] = {
+			price = 5,
+			effect = function()
+				level_up_hand_type("Royal Flush", 5, 50)
+			end,
+			sprite_index = 153,
+			description = "Levels up the Royal Flush. + 5 mult and + 50 chips"
+		},
+		["Level Up Straight Flush"] = {
+			price = 5,
+			effect = function()
+				level_up_hand_type("Straight Flush", 4, 40)
+			end,
+			sprite_index = 152,
+			description = "Levels up the Straight Flush. + 4 mult and + 40 chips"
+		},
+		["Level Up Four of a Kind"] = {
+			price = 4,
+			effect = function()
+				level_up_hand_type("Four of a Kind", 3, 30)
+			end,
+			sprite_index = 151,
+			description = "Levels up the Four of a Kind. + 3 mult and + 30 chips"
+		},
+		["Level Up Full House"] = {
+			price = 3,
+			effect = function()
+				level_up_hand_type("Full House", 2, 25)
+			end,
+			sprite_index = 150,
+			description = "Levels up the Full House. + 2 mult and + 25 chips"
+		},
+		["Level Up Flush"] = {
+			price = 3,
+			effect = function()
+				level_up_hand_type("Flush", 2, 15)
+			end,
+			sprite_index = 149,
+			description = "Levels up the Flush. + 2 mult and + 15 chips"
+		},
+		["Level Up Straight"] = {
+			price = 3,
+			effect = function()
+				level_up_hand_type("Straight", 3, 30)
+			end,
+			sprite_index = 148,
+			description = "Levels up the Straight. + 3 mult and + 30 chips"
+		},
+		["Level Up Three of a Kind"] = {
+			price = 2,
+			effect = function()
+				level_up_hand_type("Three of a Kind", 2, 20)
+			end,
+			sprite_index = 147,
+			description = "Levels up the Three of a Kind. + 2 mult and + 20 chips"
+		},
+		["Level Up Two Pair"] = {
+			price = 2,
+			effect = function()
+				level_up_hand_type("Two Pair", 1, 20)
+			end,
+			sprite_index = 146,
+			description = "Levels up the Two Pair. + 1 mult and + 20 chips"
+		},
+		["Level Up Pair"] = {
+			price = 1,
+			effect = function()
+				level_up_hand_type("Pair", 1, 15)
+			end,
+			sprite_index = 145,
+			description = "Levels up the Pair. + 1 mult and + 15 chips"
+		},
+		["Level Up High Card"] = {
+			price = 1,
+			effect = function()
+				level_up_hand_type("High Card", 1, 10)
+			end,
+			sprite_index = 144,
+			description = "Levels up the High Card. + 1 mult and + 10 chips"
+		}
+	},
+	Tarots = {
+		["Increase Rank"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 160,
+			description = "Increases the rank of two selected cards by 1"
+		},
+		["Change to Hearts"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 161,
+			description = "Changes the suit of 3 selected cards to Hearts"
+		},
+		["Change to Diamonds"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 162,
+			description = "Changes the suit of 3 selected cards to Diamonds"
+		},
+		["Change to Clubs"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 163,
+			description = "Changes the suit of 3 selected cards to Clubs"
+		},
+		["Change to Spades"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 164,
+			description = "Changes the suit of 3 selected cards to Spades"
+		},
+		["Add 4 Mult"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 165,
+			description = "Gives two cards the ability to add 4 Mult when scored"
+		},
+		["Add 30 Chips"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 166,
+			description = "Gives two cards the ability to add 30 Chips when scored"
+		},
+		["Multiply Money by 2"] = {
+			price = 4,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 167,
+			description = "Multiplies your money by 2 with the max being 20"
+		},
+		["Delete Cards"] = {
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 168,
+			description = "Deletes two selected cards from the deck"
+		},
+	}
+}
+
 deck_sprite_index = 68
 deck_sprite_pos_x = 105
 deck_sprite_pos_y = 100
@@ -217,8 +473,6 @@ function win_state()
 	hand = {}
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
-
-	-- TODO show shop
 end
 
 function lose_state()
@@ -238,6 +492,27 @@ function lose_state()
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
 end
+
+function use_special_card(category, card_name)
+    local category_table = special_cards[category]  -- Get the category (Jokers, Planets, Tarots)
+    if category_table and category_table[card_name] then
+        category_table[card_name].effect() -- Call the effect function
+    else
+        print("Card not found!")
+    end
+end
+
+function level_up_hand_type(hand_type_name, mult_amount, chip_amount)
+	local ht = hand_types[hand_type_name]
+	ht.base_mult = ht.base_mult + mult_amount 
+	ht.base_chips = ht.base_chips + chip_amount 
+	ht.level = ht.level + 1 
+end
+
+-- Example usage:
+use_special_card("Jokers", "Four Mult")  -- Prints: "Effect: Four Mult activated!"
+use_special_card("Jokers", "Eight Mult") -- Prints: "Effect: Eight Mult activated!"
+use_special_card("Planets", "Some Card") -- Prints: "Card not found!"
 
 -- Money
 function cash_out_interest()
