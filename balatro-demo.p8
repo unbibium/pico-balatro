@@ -579,15 +579,6 @@ function lose_state()
 	money = 4
 end
 
-function use_special_card(category, card_name)
-    local category_table = special_cards[category]  -- Get the category (Jokers, Planets, Tarots)
-    if category_table and category_table[card_name] then
-        category_table[card_name].effect() -- Call the effect function
-    else
-        print("Card not found!")
-    end
-end
-
 function level_up_hand_type(hand_type_name, mult_amount, chip_amount)
 	local ht = hand_types[hand_type_name]
 	ht.base_mult = ht.base_mult + mult_amount 
