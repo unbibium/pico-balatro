@@ -9,10 +9,12 @@ card_height = 8
 debug_draw_text = ""
 hand_type_text = ""
 draw_hand_gap = 4 
+draw_special_cards_gap = 10
 init_draw = true 
 max_selected = 5
 card_selected_count = 0
 suits = {'H', 'D', 'C', 'S'}
+sprite_index_lookup_table = {}
 ranks = {
 	{rank = 'A', base_chips = 11},
 	{rank = 'K', base_chips = 10},
@@ -29,17 +31,342 @@ ranks = {
 	{rank = '2', base_chips = 2},
 }	
 hand_types = {
-	["Royal Flush"] = {base_chips = 100, base_mult = 8},
-	["Straight Flush"] = {base_chips = 100, base_mult = 8},
-	["Four of a Kind"] = {base_chips = 60, base_mult = 7},
-	["Full House"] = {base_chips = 40, base_mult = 4},
-	["Flush"] = {base_chips = 35, base_mult = 4},
-	["Straight"] = {base_chips = 30, base_mult = 4},
-	["Three of a Kind"] = {base_chips = 30, base_mult = 3},
-	["Two Pair"] = {base_chips = 20, base_mult = 2},
-	["Pair"] = {base_chips = 10, base_mult = 2},
-	["High Card"] = {base_chips = 5, base_mult = 1}
+	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["Four of a Kind"] = {base_chips = 60, base_mult = 7, level = 1},
+	["Full House"] = {base_chips = 40, base_mult = 4, level = 1},
+	["Flush"] = {base_chips = 35, base_mult = 4, level = 1},
+	["Straight"] = {base_chips = 30, base_mult = 4, level = 1},
+	["Three of a Kind"] = {base_chips = 30, base_mult = 3, level = 1},
+	["Two Pair"] = {base_chips = 20, base_mult = 2, level = 1},
+	["Pair"] = {base_chips = 10, base_mult = 2, level = 1},
+	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
+special_cards = {
+	Jokers = {
+		{
+			name = "Add 4 Mult",
+			price = 2,
+			effect = function()
+				mult = mult + 4
+			end,
+			sprite_index = 128,
+			description = "Adds 4 to your mult",
+			type = "Joker"
+		},
+		{
+			name = "Add 8 Mult",
+			price = 3,
+			effect = function()
+				mult = mult + 8
+			end,
+			sprite_index = 129, 
+			description = "Adds 8 to your mult",
+			type = "Joker"
+		},
+		{
+			name = "Add 12 Mult",
+			price = 4,
+			effect = function()
+				mult = mult + 12 
+			end,
+			sprite_index = 130, 
+			description = "Adds 12 to your mult",
+			type = "Joker"
+		},
+		{
+			name = "Add Random Mult",
+			price = 4,
+			effect = function()
+				mult = mult + flr(rnd(25))
+			end,
+			sprite_index = 131, 
+			description = "Adds a random amount of mult. Lowest being 0, highest being 25",
+			type = "Joker"
+		},
+		{
+			name = "Times 1.5 Mult",
+			price = 6,
+			effect = function()
+				mult = mult * 1.5 
+			end,
+			sprite_index = 132, 
+			description = "Multiplies your mult by 1.5",
+			type = "Joker"
+		},
+		{
+			name = "Times 2 Mult",
+			price = 7,
+			effect = function()
+				mult = mult * 2 
+			end,
+			sprite_index = 133, 
+			description = "Multiplies your mult by 2",
+			type = "Joker"
+		},
+		{
+			name = "Times 3 Mult",
+			price = 8,
+			effect = function()
+				mult = mult * 3 
+			end,
+			sprite_index = 134, 
+			description = "Multiplies your mult by 3",
+			type = "Joker"
+		},
+		{
+			name = "Add 30 Chips",
+			price = 2,
+			effect = function()
+				chips = chips + 30
+			end,
+			sprite_index = 135, 
+			description = "Adds 30 to your chips",
+			type = "Joker"
+		},
+		{
+			name = "Add 60 Chips",
+			price = 3,
+			effect = function()
+				chips = chips + 60
+			end,
+			sprite_index = 136, 
+			description = "Adds 60 to your chips",
+			type = "Joker"
+		},
+		{
+			name = "Add 90 Chips",
+			price = 4,
+			effect = function()
+				chips = chips + 90
+			end,
+			sprite_index = 137, 
+			description = "Adds 90 to your chips",
+			type = "Joker"
+		},
+		{
+			name = "Add Random Chips",
+			price = 5,
+			effect = function()
+				local chip_options = {}
+				local step = 10 
+				local amount = 0
+				while (amount <= 150) do
+					add(chip_options, amount)
+					amount = amount + step
+				end
+				chips = chips + rnd(chip_options)
+			end,
+			sprite_index = 138, 
+			description = "Adds a random amount of chips. Lowest being 0, highest being 150",
+			type = "Joker"
+		}
+	},
+	Planets = {
+		{
+			name = "Level Up Royal Flush",
+			price = 5,
+			effect = function()
+				level_up_hand_type("Royal Flush", 5, 50)
+			end,
+			sprite_index = 153,
+			description = "Levels up the Royal Flush. + 5 mult and + 50 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Straight Flush",
+			price = 5,
+			effect = function()
+				level_up_hand_type("Straight Flush", 4, 40)
+			end,
+			sprite_index = 152,
+			description = "Levels up the Straight Flush. + 4 mult and + 40 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Four of a Kind",
+			price = 4,
+			effect = function()
+				level_up_hand_type("Four of a Kind", 3, 30)
+			end,
+			sprite_index = 151,
+			description = "Levels up the Four of a Kind. + 3 mult and + 30 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Full House",
+			price = 3,
+			effect = function()
+				level_up_hand_type("Full House", 2, 25)
+			end,
+			sprite_index = 150,
+			description = "Levels up the Full House. + 2 mult and + 25 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Flush",
+			price = 3,
+			effect = function()
+				level_up_hand_type("Flush", 2, 15)
+			end,
+			sprite_index = 149,
+			description = "Levels up the Flush. + 2 mult and + 15 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Straight",
+			price = 3,
+			effect = function()
+				level_up_hand_type("Straight", 3, 30)
+			end,
+			sprite_index = 148,
+			description = "Levels up the Straight. + 3 mult and + 30 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Three of a Kind",
+			price = 2,
+			effect = function()
+				level_up_hand_type("Three of a Kind", 2, 20)
+			end,
+			sprite_index = 147,
+			description = "Levels up the Three of a Kind. + 2 mult and + 20 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Two Pair",
+			price = 2,
+			effect = function()
+				level_up_hand_type("Two Pair", 1, 20)
+			end,
+			sprite_index = 146,
+			description = "Levels up the Two Pair. + 1 mult and + 20 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up Pair",
+			price = 1,
+			effect = function()
+				level_up_hand_type("Pair", 1, 15)
+			end,
+			sprite_index = 145,
+			description = "Levels up the Pair. + 1 mult and + 15 chips",
+			type = "Planet"
+		},
+		{
+			name = "Level Up High Card",
+			price = 1,
+			effect = function()
+				level_up_hand_type("High Card", 1, 10)
+			end,
+			sprite_index = 144,
+			description = "Levels up the High Card. + 1 mult and + 10 chips",
+			type = "Planet"
+		}
+	},
+	Tarots = {
+		{
+			name = "Increase Rank",
+			price = 2,
+			effect = function()
+				--TODO not finished
+				if #selected_cards <= 2 then
+					for card in all(selected_cards) do
+						if card.rank == "A" do
+							-- finish
+						else
+							-- finish
+						end
+					end
+				end
+			end,
+			sprite_index = 160,
+			description = "Increases the rank of two selected cards by 1",
+			type = "Tarot"
+		},
+		{
+			name = "Change to Hearts",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 161,
+			description = "Changes the suit of 3 selected cards to Hearts",
+			type = "Tarot"
+		},
+		{
+			name = "Change to Diamonds",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 162,
+			description = "Changes the suit of 3 selected cards to Diamonds",
+			type = "Tarot"
+		},
+		{
+			name = "Change to Clubs",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 163,
+			description = "Changes the suit of 3 selected cards to Clubs",
+			type = "Tarot"
+		},
+		{
+			name = "Change to Spades",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 164,
+			description = "Changes the suit of 3 selected cards to Spades",
+			type = "Tarot"
+		},
+		{
+			name = "Add 4 Mult",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 165,
+			description = "Gives two cards the ability to add 4 Mult when scored",
+			type = "Tarot"
+		},
+		{
+			name = "Add 30 Chips",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 166,
+			description = "Gives two cards the ability to add 30 Chips when scored",
+			type = "Tarot"
+		},
+		{
+			name = "Multiply Money by 2",
+			price = 4,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 167,
+			description = "Multiplies your money by 2 with the max being 20",
+			type = "Tarot"
+		},
+		{
+			name = "Delete Cards",
+			price = 2,
+			effect = function()
+				-- TODO 
+			end,
+			sprite_index = 168,
+			description = "Deletes two selected cards from the deck",
+			type = "Tarot"
+		},
+	}
+}
+
 deck_sprite_index = 68
 deck_sprite_pos_x = 105
 deck_sprite_pos_y = 100
@@ -54,6 +381,7 @@ btn_play_hand_pos_y = 100
 btn_discard_hand_sprite_index = 66
 btn_discard_hand_pos_x = 80 
 btn_discard_hand_pos_y = 100
+btn_buy_sprite_index = 74
 
 btn_go_next_sprite_index = 70
 btn_go_next_pos_x = 20 
@@ -65,7 +393,11 @@ btn_reroll_pos_y = 70
 -- Game State
 hand = {}
 selected_cards = {}
+shop_options = {}
 scored_cards = {}
+joker_cards = {}
+tarot_cards = {}
+reroll_price = 5
 hand_size = 8
 score = 0
 chips = 0
@@ -87,6 +419,8 @@ function _init()
     -- initialize data
     poke(0x5F2D, 0x7)
 	poke(0x5f2d, 0x3) -- mouse stuff?
+	build_sprite_index_lookup_table()
+	add_resettable_params_to_special_cards()
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
 	deal_hand(shuffled_deck, hand_size)
@@ -99,12 +433,15 @@ function _update()
 
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
-	if btnp(5) then 
-		left_click_hand_collision()
+	if btnp(5) and not in_shop then 
+		hand_collision()
 		update_selected_cards()
 		play_button_clicked()
 		discard_button_clicked()
+	elseif btnp(5) and in_shop then
 		go_next_button_clicked()
+		buy_button_clicked()
+		reroll_button_clicked()
 	end
 
     -- Check keyboard
@@ -120,6 +457,7 @@ function _draw()
 		draw_background()
 		draw_shop()
 		draw_go_next_and_reroll_button()
+		draw_shop_options()
 	else
     	draw_background()
     	draw_hand()
@@ -133,6 +471,8 @@ function _draw()
 	draw_hands_and_discards()
 	draw_money()
 	draw_round_and_score()
+	draw_joker_cards()
+	draw_tarot_cards()
     draw_mouse(mx, my)
 	test_draw_debug() -- TODO remove this
 end
@@ -205,6 +545,7 @@ function win_state()
 	cash_out_interest()
 	cash_out_money_earned_per_round()
 	cash_out_money_earned_per_hand_remaining()
+	add_cards_to_shop()
 	card_selected_count = 0
 	scored_cards = {}
 	hands = 4
@@ -217,8 +558,6 @@ function win_state()
 	hand = {}
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
-
-	-- TODO show shop
 end
 
 function lose_state()
@@ -233,10 +572,18 @@ function lose_state()
 	reset_card_params()
 	selected_cards = {}
 	scored_cards = {}
+	shop_options = {}
 	hand = {}
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
+end
+
+function level_up_hand_type(hand_type_name, mult_amount, chip_amount)
+	local ht = hand_types[hand_type_name]
+	ht.base_mult = ht.base_mult + mult_amount 
+	ht.base_chips = ht.base_chips + chip_amount 
+	ht.level = ht.level + 1 
 end
 
 -- Money
@@ -268,7 +615,6 @@ end
 
 -- Deck
 function create_base_deck()
-	sprite_index = 0
 	card_id = 1
 	base_deck = {}
 
@@ -286,7 +632,7 @@ function create_base_deck()
 				suit = suits[y],
 				chips = ranks[x].base_chips,
 				mult = 0,
-				sprite_index = sprite_index,
+				sprite_index = sprite_index_lookup_table[ranks[x]["rank"] .. suits[y]],
 				order = ranks[x].order,
 				-- Resettable params
 				selected = false,
@@ -295,7 +641,6 @@ function create_base_deck()
 			}
 			add(base_deck, card_info)
 			card_id = card_id + 1
-			sprite_index = sprite_index + 1
 		end
 	end
 		
@@ -340,6 +685,45 @@ function reset_card_params()
 			card.selected = false
 		end
 	end
+end
+
+function build_sprite_index_lookup_table()
+	local sprite_index = 0	 
+
+	-- Create deck
+	for x=1,#ranks do
+		for y=1,#suits do
+			sprite_index_lookup_table[ranks[x]["rank"] .. suits[y]] = sprite_index
+			sprite_index = sprite_index + 1
+		end
+	end
+end
+
+function add_resettable_params_to_special_cards()
+	for joker in all(special_cards[Jokers])	do
+		joker.selected = false
+		joker.pos_x = 0 
+		joker.pos_y = 0 
+	end
+	for planet in all(special_cards[Planets]) do
+		planet.selected = false
+		planet.pos_x = 0 
+		planet.pos_y = 0 
+	end
+	for tarot in all(special_cards[Tarots]) do
+		tarot.selected = false
+		tarot.pos_x = 0
+		tarot.pos_y = 0
+	end
+end
+
+function add_cards_to_shop()
+	random_joker = rnd(special_cards["Jokers"])
+	add(shop_options, random_joker)
+	random_planet = rnd(special_cards["Planets"])
+	add(shop_options, random_planet)
+	random_tarot = rnd(special_cards["Tarots"])
+	add(shop_options, random_tarot)
 end
 
 -- Graphics 
@@ -427,10 +811,43 @@ end
 function draw_go_next_and_reroll_button()
 	spr(btn_go_next_sprite_index, btn_go_next_pos_x, btn_go_next_pos_y, 2, 2)
 	spr(btn_reroll_sprite_index, btn_reroll_pos_x, btn_reroll_pos_y, 2, 2)
+	print("$"..reroll_price, btn_reroll_pos_x + flr(card_width / 2), btn_reroll_pos_y + btn_height, 7)
+end
+
+function draw_shop_options()
+	draw_special_hand_start_x = 60	
+	draw_special_hand_start_y = 60 
+
+	for special_card in all(shop_options) do
+   		spr(special_card.sprite_index, draw_special_hand_start_x, draw_special_hand_start_y)
+		spr(btn_buy_sprite_index, draw_special_hand_start_x, draw_special_hand_start_y + card_height)
+		print("$" .. special_card.price, draw_special_hand_start_x, draw_special_hand_start_y - card_height, 7)
+		special_card.pos_x = draw_special_hand_start_x
+		special_card.pos_y = draw_special_hand_start_y
+		draw_special_hand_start_x = draw_special_hand_start_x + card_width + draw_special_cards_gap
+	end
+end
+
+function draw_joker_cards()
+	draw_joker_start_x = 62	
+	draw_joker_start_y = 10 
+	for joker in all(joker_cards) do
+   		spr(joker.sprite_index, draw_joker_start_x, draw_joker_start_y)
+		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap 
+	end
+end
+
+function draw_tarot_cards()
+	draw_tarot_start_x = 82	
+	draw_tarot_start_y = 20 
+	for tarot in all(tarot_cards) do
+   		spr(tarot.sprite_index, draw_tarot_start_x, draw_tarot_start_y)
+		draw_tarot_start_x = draw_tarot_start_x + card_width + draw_hand_gap 
+	end
 end
 
 -- Inputs
-function left_click_hand_collision()
+function hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
 	for x=1, #hand do
 		if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
@@ -487,7 +904,41 @@ end
 function go_next_button_clicked()
 	if mouse_sprite_collision(btn_go_next_pos_x, btn_go_next_pos_y, btn_width, btn_height)	and in_shop == true then
 		in_shop = false			
+		shop_options = {}
+		debug_draw_text	= ""
 	end
+end
+
+function reroll_button_clicked()
+	if mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop == true and money >= reroll_price then
+		money = money - reroll_price
+		shop_options = {}
+		add_cards_to_shop()
+		reroll_price = reroll_price + 1
+	elseif mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop == true and money < reroll_price then
+		debug_draw_text = "You don't have enough\n money to reroll.\n Get your money up."
+	end
+end
+
+function buy_button_clicked()
+	for special_card in all(shop_options) do
+		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money >= special_card.price then
+			money = money - special_card.price
+			if special_card.type == "Joker" then
+				add(joker_cards, special_card)
+				del(shop_options, special_card)--TODO might break something?
+			elseif special_card.type == "Tarot" then
+				add(tarot_cards, special_card)
+				del(shop_options, special_card) --TODO might break something?
+			else
+				special_card.effect()
+				del(shop_options, special_card)
+			end
+		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
+			debug_draw_text = "You don't have enough\n money to buy this.\n Get your money up."
+		end
+	end
+	
 end
 
 -- Hand Detection
@@ -737,7 +1188,7 @@ end
 
 -- TEST
 function test_draw_debug()
-	print(debug_draw_text, 50, 35, 7)
+	print(debug_draw_text, 30, 35, 7)
 end
 
 function test_draw_table(table)
@@ -779,14 +1230,14 @@ __gfx__
 78877777799777777cc7777775577777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 78888887799999977cccccc775555557000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 77777777777777777777777777777777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
-cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb000000000000000000000000000000000000000000000000
-c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb000000000000000000000000000000000000000000000000
-c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb000000000000000000000000000000000000000000000000
-c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbb000000000000000000000000000000000000000000000000
-c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbb000000000000000000000000000000000000000000000000
-c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bb000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb8aaa8a8a0000000000000000000000000000000000000000
+cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb888a8a8a0000000000000000000000000000000000000000
+c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb8a8a8a8a0000000000000000000000000000000000000000
+c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb888a888a0000000000000000000000000000000000000000
+c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbbaaaaaaaa0000000000000000000000000000000000000000
+c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbbaa8a8aaa0000000000000000000000000000000000000000
+c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bbaaa8aaaa0000000000000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbbaaa8aaaa0000000000000000000000000000000000000000
 cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
 cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88777877878787778b7777b777b7bb7bb000000000000000000000000000000000000000000000000
 c7c7c777c777c777e77e777e777e777e678c8c8c8c8c8c8c8787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
