@@ -42,6 +42,7 @@ hand_types = {
 	["Pair"] = {base_chips = 10, base_mult = 2, level = 1},
 	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
+hand_types_copy = {}
 special_cards = {
 	Jokers = {
 		{
@@ -397,6 +398,8 @@ shop_options = {}
 scored_cards = {}
 joker_cards = {}
 tarot_cards = {}
+joker_limit = 5
+tarot_limit = 2
 reroll_price = 5
 hand_size = 8
 score = 0
@@ -420,6 +423,7 @@ function _init()
     poke(0x5F2D, 0x7)
 	poke(0x5f2d, 0x3) -- mouse stuff?
 	build_sprite_index_lookup_table()
+	make_hand_types_copy()
 	add_resettable_params_to_special_cards()
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
@@ -455,6 +459,7 @@ function _draw()
 	-- conditional draw
 	if in_shop then
 		draw_background()
+		draw_score()
 		draw_shop()
 		draw_go_next_and_reroll_button()
 		draw_shop_options()
@@ -483,10 +488,17 @@ function score_hand()
 		chips = chips + card.chips
 		mult = mult + card.mult
 	end
+	score_jokers()
 	score = score + (chips * mult)
 	chips = 0
 	mult = 0
 	hand_type_text = ""
+end
+
+function score_jokers()
+	for joker in all(joker_cards) do
+		joker.effect()
+	end
 end
 
 function update_selected_cards()
@@ -550,7 +562,6 @@ function win_state()
 	scored_cards = {}
 	hands = 4
 	discards = 4
-	score = 0
 	shuffled_deck = shuffle_deck(base_deck)
 	reset_card_params()
 	selected_cards = {}
@@ -568,12 +579,14 @@ function lose_state()
 	hands = 4
 	discards = 4
 	score = 0
+	reroll_price = 5
 	shuffled_deck = shuffle_deck(base_deck)
 	reset_card_params()
 	selected_cards = {}
 	scored_cards = {}
 	shop_options = {}
 	hand = {}
+	hand_types = hand_types_copy -- TODO not working
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
@@ -700,21 +713,32 @@ function build_sprite_index_lookup_table()
 end
 
 function add_resettable_params_to_special_cards()
-	for joker in all(special_cards[Jokers])	do
+	for joker in all(special_cards["Jokers"]) do
 		joker.selected = false
 		joker.pos_x = 0 
 		joker.pos_y = 0 
 	end
-	for planet in all(special_cards[Planets]) do
+	for planet in all(special_cards["Planets"]) do
 		planet.selected = false
 		planet.pos_x = 0 
 		planet.pos_y = 0 
 	end
-	for tarot in all(special_cards[Tarots]) do
+	for tarot in all(special_cards["Tarots"]) do
 		tarot.selected = false
 		tarot.pos_x = 0
 		tarot.pos_y = 0
 	end
+end
+
+function make_hand_types_copy()
+	for k, v in pairs(hand_types) do
+	    local new_table = {}
+	    for sub_k, sub_v in pairs(v) do
+	        new_table[sub_k] = sub_v
+	    end
+	    hand_types_copy[k] = new_table
+	end    
+	
 end
 
 function add_cards_to_shop()
@@ -778,7 +802,7 @@ function draw_chips_and_mult()
 end
 
 function draw_score()
-	print("Score:" .. score, 2, 40, 7)
+	print("Score:" .. score, 2, 30, 7)
 end
 
 function draw_hand_type()
@@ -829,12 +853,13 @@ function draw_shop_options()
 end
 
 function draw_joker_cards()
-	draw_joker_start_x = 62	
-	draw_joker_start_y = 10 
+	draw_joker_start_x = 55	
+	draw_joker_start_y = 5 
 	for joker in all(joker_cards) do
    		spr(joker.sprite_index, draw_joker_start_x, draw_joker_start_y)
 		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap 
 	end
+	print(#joker_cards.. "/" .. joker_limit, draw_joker_start_x, draw_joker_start_y, 7)
 end
 
 function draw_tarot_cards()
@@ -906,6 +931,8 @@ function go_next_button_clicked()
 		in_shop = false			
 		shop_options = {}
 		debug_draw_text	= ""
+		reroll_price = 5
+		score = 0
 	end
 end
 
@@ -924,13 +951,22 @@ function buy_button_clicked()
 	for special_card in all(shop_options) do
 		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money >= special_card.price then
 			money = money - special_card.price
-			if special_card.type == "Joker" then
+			-- Joker
+			if special_card.type == "Joker" and #joker_cards < joker_limit then
 				add(joker_cards, special_card)
-				del(shop_options, special_card)--TODO might break something?
-			elseif special_card.type == "Tarot" then
+				del(shop_options, special_card)
+			elseif special_card.type == "Joker" and #joker_cards == joker_limit then 
+				debug_draw_text = "You have reached \nthe max amount \nof jokers"
+			end
+
+			-- Tarot 
+			if special_card.type == "Tarot" then
 				add(tarot_cards, special_card)
-				del(shop_options, special_card) --TODO might break something?
-			else
+				del(shop_options, special_card)
+			end
+
+			-- Planet 
+			if special_card.type == "Planet" then	
 				special_card.effect()
 				del(shop_options, special_card)
 			end
