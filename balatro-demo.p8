@@ -562,7 +562,6 @@ function win_state()
 	scored_cards = {}
 	hands = 4
 	discards = 4
-	--score = 0 TODO remove
 	shuffled_deck = shuffle_deck(base_deck)
 	reset_card_params()
 	selected_cards = {}
@@ -714,7 +713,7 @@ function build_sprite_index_lookup_table()
 end
 
 function add_resettable_params_to_special_cards()
-	for joker in all(special_cards["Jokers"])	do
+	for joker in all(special_cards["Jokers"]) do
 		joker.selected = false
 		joker.pos_x = 0 
 		joker.pos_y = 0 
@@ -955,7 +954,7 @@ function buy_button_clicked()
 			-- Joker
 			if special_card.type == "Joker" and #joker_cards < joker_limit then
 				add(joker_cards, special_card)
-				del(shop_options, special_card)--TODO might break something?
+				del(shop_options, special_card)
 			elseif special_card.type == "Joker" and #joker_cards == joker_limit then 
 				debug_draw_text = "You have reached \nthe max amount \nof jokers"
 			end
@@ -963,7 +962,7 @@ function buy_button_clicked()
 			-- Tarot 
 			if special_card.type == "Tarot" then
 				add(tarot_cards, special_card)
-				del(shop_options, special_card) --TODO might break something?
+				del(shop_options, special_card)
 			end
 
 			-- Planet 
