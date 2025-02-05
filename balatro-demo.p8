@@ -949,20 +949,25 @@ end
 function buy_button_clicked()
 	for special_card in all(shop_options) do
 		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money >= special_card.price then
-			if #joker_cards < joker_limit then 
-				money = money - special_card.price
-				if special_card.type == "Joker" then
-					add(joker_cards, special_card)
-					del(shop_options, special_card)--TODO might break something?
-				elseif special_card.type == "Tarot" then
-					add(tarot_cards, special_card)
-					del(shop_options, special_card) --TODO might break something?
-				else
-					special_card.effect()
-					del(shop_options, special_card)
-				end
-			else
+			money = money - special_card.price
+			-- Joker
+			if special_card.type == "Joker" and #joker_cards < joker_limit then
+				add(joker_cards, special_card)
+				del(shop_options, special_card)--TODO might break something?
+			elseif special_card.type == "Joker" and #joker_cards == joker_limit then 
 				debug_draw_text = "You have reached \nthe max amount \nof jokers"
+			end
+
+			-- Tarot 
+			if special_card.type == "Tarot" then
+				add(tarot_cards, special_card)
+				del(shop_options, special_card) --TODO might break something?
+			end
+
+			-- Planet 
+			if special_card.type == "Planet" then	
+				special_card.effect()
+				del(shop_options, special_card)
 			end
 		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
 			debug_draw_text = "You don't have enough\n money to buy this.\n Get your money up."
