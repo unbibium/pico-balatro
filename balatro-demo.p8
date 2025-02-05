@@ -580,6 +580,7 @@ function lose_state()
 	hands = 4
 	discards = 4
 	score = 0
+	reroll_price = 5
 	shuffled_deck = shuffle_deck(base_deck)
 	reset_card_params()
 	selected_cards = {}
@@ -931,6 +932,7 @@ function go_next_button_clicked()
 		in_shop = false			
 		shop_options = {}
 		debug_draw_text	= ""
+		reroll_price = 5
 		score = 0
 	end
 end
