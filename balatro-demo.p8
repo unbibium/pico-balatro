@@ -6,7 +6,7 @@ screen_width = 128
 screen_height = 128
 card_width = 8
 card_height = 8
-debug_draw_text = ""
+error_message = ""
 hand_type_text = ""
 draw_hand_gap = 4 
 draw_special_cards_gap = 10
@@ -269,16 +269,23 @@ special_cards = {
 		{
 			name = "Increase Rank",
 			price = 2,
-			effect = function()
-				--TODO not finished
+			effect = function(tarot)
 				if #selected_cards <= 2 then
 					for card in all(selected_cards) do
-						if card.rank == "A" do
-							-- finish
-						else
-							-- finish
-						end
+						local higher_rank = find_1_rank_higher(card.rank)
+						card.sprite_index = sprite_index_lookup_table[higher_rank..card.suit]
+						card.rank = higher_rank 
+						card.order = find_rank_order(higher_rank)
+						card.chips = find_rank_base_chips(higher_rank)
+						card.selected = false
+						card.pos_y = card.pos_y + 10
 					end
+					card_selected_count = 0
+					del(tarot_cards, tarot)
+					init_draw = true
+					sort_by_rank_decreasing(hand)
+				else
+					error_message = "Can only use this\n tarot card with 2 cards"
 				end
 			end,
 			sprite_index = 160,
@@ -288,8 +295,8 @@ special_cards = {
 		{
 			name = "Change to Hearts",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				change_to_suit("H", tarot)	
 			end,
 			sprite_index = 161,
 			description = "Changes the suit of 3 selected cards to Hearts",
@@ -298,8 +305,8 @@ special_cards = {
 		{
 			name = "Change to Diamonds",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				change_to_suit("D", tarot)	
 			end,
 			sprite_index = 162,
 			description = "Changes the suit of 3 selected cards to Diamonds",
@@ -308,8 +315,8 @@ special_cards = {
 		{
 			name = "Change to Clubs",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				change_to_suit("C", tarot)	
 			end,
 			sprite_index = 163,
 			description = "Changes the suit of 3 selected cards to Clubs",
@@ -318,8 +325,8 @@ special_cards = {
 		{
 			name = "Change to Spades",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				change_to_suit("S", tarot)	
 			end,
 			sprite_index = 164,
 			description = "Changes the suit of 3 selected cards to Spades",
@@ -328,8 +335,21 @@ special_cards = {
 		{
 			name = "Add 4 Mult",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				if #selected_cards <= 2 then
+					for card in all(selected_cards) do
+						card.mult = 4
+						card.selected = false
+						card.pos_y = card.pos_y + 10
+						if card.effect_chips > 0 then
+							card.effect_chips = 0
+						end
+					end
+					card_selected_count = 0
+					del(tarot_cards, tarot)
+				else
+					error_message = "Can only use this\n tarot card with 2 cards"
+				end
 			end,
 			sprite_index = 165,
 			description = "Gives two cards the ability to add 4 Mult when scored",
@@ -338,8 +358,21 @@ special_cards = {
 		{
 			name = "Add 30 Chips",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				if #selected_cards <= 2 then
+					for card in all(selected_cards) do
+						card.effect_chips = 30 
+						card.selected = false
+						card.pos_y = card.pos_y + 10
+						if card.mult > 0 then
+							card.mult = 0
+						end
+					end
+					card_selected_count = 0
+					del(tarot_cards, tarot)
+				else
+					error_message = "Can only use this\n tarot card with 2 cards"
+				end
 			end,
 			sprite_index = 166,
 			description = "Gives two cards the ability to add 30 Chips when scored",
@@ -349,7 +382,11 @@ special_cards = {
 			name = "Multiply Money by 2",
 			price = 4,
 			effect = function()
-				-- TODO 
+				if money >= 20 then
+					money = money + 20
+				else
+					money = money * 2
+				end
 			end,
 			sprite_index = 167,
 			description = "Multiplies your money by 2 with the max being 20",
@@ -358,8 +395,20 @@ special_cards = {
 		{
 			name = "Delete Cards",
 			price = 2,
-			effect = function()
-				-- TODO 
+			effect = function(tarot)
+				if #selected_cards <= 2 then
+					for card in all(selected_cards) do
+						del(base_deck, card)
+						del(hand, card)
+					end
+					deal_hand(shuffled_deck, #selected_cards)
+					card_selected_count = 0
+					del(tarot_cards, tarot)
+					init_draw = true
+					sort_by_rank_decreasing(hand)
+				else
+					error_message = "Can only use this\n tarot card with 2 cards"
+				end
 			end,
 			sprite_index = 168,
 			description = "Deletes two selected cards from the deck",
@@ -383,6 +432,7 @@ btn_discard_hand_sprite_index = 66
 btn_discard_hand_pos_x = 80 
 btn_discard_hand_pos_y = 100
 btn_buy_sprite_index = 74
+btn_use_sprite_index = 75 
 
 btn_go_next_sprite_index = 70
 btn_go_next_pos_x = 20 
@@ -442,6 +492,7 @@ function _update()
 		update_selected_cards()
 		play_button_clicked()
 		discard_button_clicked()
+		use_button_clicked()
 	elseif btnp(5) and in_shop then
 		go_next_button_clicked()
 		buy_button_clicked()
@@ -470,6 +521,7 @@ function _draw()
 		draw_chips_and_mult()
 		draw_score()
 		draw_hand_type(hand_type_text)
+		draw_special_card_pixels()
 		draw_deck()
 	end
 	-- always draw
@@ -479,13 +531,13 @@ function _draw()
 	draw_joker_cards()
 	draw_tarot_cards()
     draw_mouse(mx, my)
-	test_draw_debug() -- TODO remove this
+	draw_error_message()
 end
 
 function score_hand()
 	-- Score cards 
 	for card in all(scored_cards) do
-		chips = chips + card.chips
+		chips = chips + card.chips + card.effect_chips
 		mult = mult + card.mult
 	end
 	score_jokers()
@@ -572,6 +624,7 @@ function win_state()
 end
 
 function lose_state()
+	base_deck = create_base_deck()
 	round = 1
 	goal_score = 300
 	card_selected_count = 0
@@ -628,8 +681,7 @@ end
 
 -- Deck
 function create_base_deck()
-	card_id = 1
-	base_deck = {}
+	local base_deck = {}
 
 	-- Set the sorting order		
 	for i, card in pairs(ranks) do
@@ -640,10 +692,10 @@ function create_base_deck()
 	for x=1,#ranks do
 		for y=1,#suits do
 			card_info = {
-				card_id = card_id,	
 				rank = ranks[x].rank,
 				suit = suits[y],
 				chips = ranks[x].base_chips,
+				effect_chips = 0,
 				mult = 0,
 				sprite_index = sprite_index_lookup_table[ranks[x]["rank"] .. suits[y]],
 				order = ranks[x].order,
@@ -653,10 +705,8 @@ function create_base_deck()
 				pos_y = 0
 			}
 			add(base_deck, card_info)
-			card_id = card_id + 1
 		end
 	end
-		
 	return base_deck
 end
 
@@ -738,7 +788,6 @@ function make_hand_types_copy()
 	    end
 	    hand_types_copy[k] = new_table
 	end    
-	
 end
 
 function add_cards_to_shop()
@@ -748,6 +797,8 @@ function add_cards_to_shop()
 	add(shop_options, random_planet)
 	random_tarot = rnd(special_cards["Tarots"])
 	add(shop_options, random_tarot)
+	-- Use the below function if you want to test a special card 
+	--add(shop_options, get_special_card_by_name("Increase Rank", "Tarots"))
 end
 
 -- Graphics 
@@ -786,9 +837,9 @@ function select_hand(card)
 		card.selected = false
 		card_selected_count = card_selected_count - 1
 		card.pos_y = card.pos_y + 10
-		if card_selected_count == 4 then debug_draw_text = "" end
+		if card_selected_count == 4 then error_message = "" end
 	else
-		debug_draw_text = "You can only select 5 \ncards at a time"
+		error_message = "You can only select 5 \ncards at a time"
 	end
 end
 
@@ -857,6 +908,8 @@ function draw_joker_cards()
 	draw_joker_start_y = 5 
 	for joker in all(joker_cards) do
    		spr(joker.sprite_index, draw_joker_start_x, draw_joker_start_y)
+		joker.pos_x = draw_joker_start_x 
+		joker.pos_y = draw_hand_start_y 
 		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap 
 	end
 	print(#joker_cards.. "/" .. joker_limit, draw_joker_start_x, draw_joker_start_y, 7)
@@ -867,7 +920,25 @@ function draw_tarot_cards()
 	draw_tarot_start_y = 20 
 	for tarot in all(tarot_cards) do
    		spr(tarot.sprite_index, draw_tarot_start_x, draw_tarot_start_y)
+		spr(btn_use_sprite_index, draw_tarot_start_x, draw_tarot_start_y + card_height)
+		tarot.pos_x = draw_tarot_start_x
+		tarot.pos_y = draw_tarot_start_y
 		draw_tarot_start_x = draw_tarot_start_x + card_width + draw_hand_gap 
+	end
+	print(#tarot_cards.. "/" .. tarot_limit, draw_tarot_start_x, draw_tarot_start_y, 7)
+end
+
+function draw_error_message()
+	print(error_message, 30, 35, 7)
+end
+
+function draw_special_card_pixels()
+	for card in all(hand) do
+		if card.effect_chips == 30 then
+			pset(card.pos_x + card_width - 1, card.pos_y, 12)
+		elseif card.mult == 4 then
+			pset(card.pos_x + card_width - 1, card.pos_y, 8)
+		end
 	end
 end
 
@@ -904,7 +975,7 @@ function play_button_clicked()
 			init_draw = true
 			card_selected_count = 0
 			scored_cards = {}
-			debug_draw_text = ""
+			error_message = ""
 			if hands == 0 then
 				lose_state()
 			end
@@ -922,7 +993,7 @@ function discard_button_clicked()
 		init_draw = true
 		card_selected_count = 0
 		discards = discards - 1
-		debug_draw_text = ""
+		error_message = ""
 	end
 end
 
@@ -930,7 +1001,7 @@ function go_next_button_clicked()
 	if mouse_sprite_collision(btn_go_next_pos_x, btn_go_next_pos_y, btn_width, btn_height)	and in_shop == true then
 		in_shop = false			
 		shop_options = {}
-		debug_draw_text	= ""
+		error_message = ""
 		reroll_price = 5
 		score = 0
 	end
@@ -943,7 +1014,7 @@ function reroll_button_clicked()
 		add_cards_to_shop()
 		reroll_price = reroll_price + 1
 	elseif mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop == true and money < reroll_price then
-		debug_draw_text = "You don't have enough\n money to reroll.\n Get your money up."
+		error_message = "You don't have enough\n money to reroll.\n Get your money up."
 	end
 end
 
@@ -956,13 +1027,20 @@ function buy_button_clicked()
 				add(joker_cards, special_card)
 				del(shop_options, special_card)
 			elseif special_card.type == "Joker" and #joker_cards == joker_limit then 
-				debug_draw_text = "You have reached \nthe max amount \nof jokers"
+				error_message = "You have reached \nthe max amount \nof jokers"
 			end
 
 			-- Tarot 
-			if special_card.type == "Tarot" then
-				add(tarot_cards, special_card)
-				del(shop_options, special_card)
+			if special_card.type == "Tarot" and #tarot_cards < tarot_limit then
+				if special_card.name == "Multiply Money by 2" then
+					special_card.effect()	
+					del(shop_options, special_card)
+				else
+					add(tarot_cards, special_card)
+					del(shop_options, special_card)
+				end
+			elseif special_card.type == "Tarot" and #tarot_cards == tarot_limit then
+				error_message = "You have reached \nthe max amount \nof tarots"
 			end
 
 			-- Planet 
@@ -971,10 +1049,19 @@ function buy_button_clicked()
 				del(shop_options, special_card)
 			end
 		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
-			debug_draw_text = "You don't have enough\n money to buy this.\n Get your money up."
+			error_message = "You don't have enough\n money to buy this.\n Get your money up."
 		end
 	end
-	
+end
+
+function use_button_clicked()
+	for tarot in all(tarot_cards) do
+		if mouse_sprite_collision(tarot.pos_x, tarot.pos_y + card_height, card_width, card_height) and #selected_cards > 0 then
+			tarot.effect(tarot)
+		elseif mouse_sprite_collision(tarot.pos_x, tarot.pos_y + card_height, card_width, card_height) and #selected_cards == 0 then
+			error_message = "Cards must be selected\n to use this tarot card"
+		end
+	end
 end
 
 -- Hand Detection
@@ -1222,14 +1309,66 @@ function sort_by_rank_decreasing(cards)
 	end
 end
 
--- TEST
-function test_draw_debug()
-	print(debug_draw_text, 30, 35, 7)
+function find_1_rank_higher(rank)
+	if rank == 'A' then
+		return '2'
+	end
+	for x=1,#ranks do	
+		if ranks[x].rank == rank then
+			return ranks[x-1].rank
+		end
+	end
 end
 
+function find_rank_order(rank)
+	for x=1,#ranks do	
+		if ranks[x].rank == rank then
+			return ranks[x].order
+		end
+	end
+end
+
+function find_rank_base_chips(rank)
+	for x=1,#ranks do	
+		if ranks[x].rank == rank then
+			return ranks[x].base_chips
+		end
+	end
+end
+
+function get_special_card_by_name(name, type)
+	for special_card_type, v in pairs(special_cards) do		
+		if special_card_type == type then
+			for card in all(v) do
+				if card.name == name then
+					return card
+				end
+			end
+		end
+	end
+end
+
+function change_to_suit(suit, tarot)
+	if #selected_cards <= 3 then
+		for card in all(selected_cards) do
+			card.sprite_index = sprite_index_lookup_table[card.rank..suit]
+			card.suit = suit 
+			card.selected = false
+			card.pos_y = card.pos_y + 10
+		end
+		card_selected_count = 0
+		del(tarot_cards, tarot)
+	else
+		error_message = "Can only use this\n tarot card with 3 cards"
+	end
+end
+
+-- TEST
 function test_draw_table(table)
+	local text = ""
 	for card in all(table) do
-		debug_draw_text = debug_draw_text .. " " .. card.rank .. card.suit
+		text = text .. " " .. card.rank .. card.suit .. card.order
+		printh(text)
 	end
 end
 
@@ -1266,14 +1405,14 @@ __gfx__
 78877777799777777cc7777775577777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 78888887799999977cccccc775555557000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 77777777777777777777777777777777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb8aaa8a8a0000000000000000000000000000000000000000
-cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb888a8a8a0000000000000000000000000000000000000000
-c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb8a8a8a8a0000000000000000000000000000000000000000
-c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb888a888a0000000000000000000000000000000000000000
-c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbbaaaaaaaa0000000000000000000000000000000000000000
-c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbbaa8a8aaa0000000000000000000000000000000000000000
-c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bbaaa8aaaa0000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbbaaa8aaaa0000000000000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb8aaa8a8a8a8a888800000000000000000000000000000000
+cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb888a8a8a888a8aaa00000000000000000000000000000000
+c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb8a8a8a8aaaaa8aaa00000000000000000000000000000000
+c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb888a888a888a88aa00000000000000000000000000000000
+c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbbaaaaaaaa8aaa8aaa00000000000000000000000000000000
+c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbbaa8a8aaa888a8aaa00000000000000000000000000000000
+c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bbaaa8aaaaaa8a8aaa00000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbbaaa8aaaa888a888800000000000000000000000000000000
 cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
 cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88777877878787778b7777b777b7bb7bb000000000000000000000000000000000000000000000000
 c7c7c777c777c777e77e777e777e777e678c8c8c8c8c8c8c8787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
