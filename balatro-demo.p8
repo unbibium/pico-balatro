@@ -427,12 +427,13 @@ btn_height = 16
 btn_gap = 10
 btn_play_hand_sprite_index = 64
 btn_play_hand_pos_x = 32 
-btn_play_hand_pos_y = 100
+btn_play_hand_pos_y = 110
 btn_discard_hand_sprite_index = 66
 btn_discard_hand_pos_x = 80 
-btn_discard_hand_pos_y = 100
+btn_discard_hand_pos_y = 110
 btn_buy_sprite_index = 74
 btn_use_sprite_index = 75 
+btn_sell_sprite_index = 76 
 
 btn_go_next_sprite_index = 70
 btn_go_next_pos_x = 20 
@@ -493,10 +494,12 @@ function _update()
 		play_button_clicked()
 		discard_button_clicked()
 		use_button_clicked()
+		sell_button_clicked()
 	elseif btnp(5) and in_shop then
 		go_next_button_clicked()
 		buy_button_clicked()
 		reroll_button_clicked()
+		sell_button_clicked()
 	end
 
     -- Check keyboard
@@ -605,6 +608,7 @@ function update_round_and_score()
 end
 
 function win_state()
+	error_message = ""
 	update_round_and_score()	
 	cash_out_interest()
 	cash_out_money_earned_per_round()
@@ -791,13 +795,16 @@ function make_hand_types_copy()
 end
 
 function add_cards_to_shop()
-	random_joker = rnd(special_cards["Jokers"])
-	add(shop_options, random_joker)
+	random_joker = find_random_unique_shop_option("Jokers", joker_cards) -- don't repeat cards
+	add(shop_options, random_joker) 
+
 	random_planet = rnd(special_cards["Planets"])
 	add(shop_options, random_planet)
-	random_tarot = rnd(special_cards["Tarots"])
+
+	random_tarot = find_random_unique_shop_option("Tarots", tarot_cards) -- don't repeat cards
 	add(shop_options, random_tarot)
-	-- Use the below function if you want to test a special card 
+
+	-- TODO TEST If you want to test specific cards, use below 
 	--add(shop_options, get_special_card_by_name("Increase Rank", "Tarots"))
 end
 
@@ -808,7 +815,7 @@ end
 
 function draw_hand()	
 	draw_hand_start_x = 15	
-	draw_hand_start_y = 80
+	draw_hand_start_y = 90 
 	if init_draw then
 		for x=1,#hand do
  	   		spr(hand[x].sprite_index, draw_hand_start_x, draw_hand_start_y) 
@@ -849,15 +856,19 @@ function draw_play_discard_buttons()
 end
 
 function draw_chips_and_mult()
-	print(chips .. " X " .. mult, 2, 50, 7)
+	print(chips .. " X " .. mult, 2, 70, 7)
 end
 
 function draw_score()
-	print("Score:" .. score, 2, 30, 7)
+	if in_shop == false then
+		print("Score:" .. score, 2, 60, 7)
+	else
+		print("Scored Last:" .. score, 30, 120, 7)
+	end
 end
 
 function draw_hand_type()
-	print(hand_type_text, 45, 55, 7)	
+	print(hand_type_text, 45, 70, 7)	
 end
 
 function draw_deck()
@@ -875,8 +886,13 @@ function draw_money()
 end
 
 function draw_round_and_score()
-	print("Round:" .. round, 2, 10, 7)
-	print("Goal Score:" .. goal_score, 2, 20, 7)
+	if in_shop == false then
+		print("Round:" .. round, 2, 40, 7)
+		print("Goal Score:" .. goal_score, 2, 50, 7)
+	else
+		print("Round:" .. round, 30, 100, 7)
+		print("Next Score:" .. goal_score, 30, 110, 7)
+	end
 end
 
 function draw_shop()
@@ -904,32 +920,36 @@ function draw_shop_options()
 end
 
 function draw_joker_cards()
-	draw_joker_start_x = 55	
-	draw_joker_start_y = 5 
+	draw_joker_start_x = 15	
+	draw_joker_start_y = 4 
 	for joker in all(joker_cards) do
    		spr(joker.sprite_index, draw_joker_start_x, draw_joker_start_y)
+		spr(btn_sell_sprite_index, draw_joker_start_x - card_width, draw_joker_start_y)
+		print("$"..calculate_sell_price(joker.price), draw_joker_start_x - card_width, draw_joker_start_y + card_height + 1, 7)
 		joker.pos_x = draw_joker_start_x 
-		joker.pos_y = draw_hand_start_y 
-		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap 
+		joker.pos_y = draw_joker_start_y 
+		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap + 5
 	end
 	print(#joker_cards.. "/" .. joker_limit, draw_joker_start_x, draw_joker_start_y, 7)
 end
 
 function draw_tarot_cards()
 	draw_tarot_start_x = 82	
-	draw_tarot_start_y = 20 
+	draw_tarot_start_y = 20
 	for tarot in all(tarot_cards) do
    		spr(tarot.sprite_index, draw_tarot_start_x, draw_tarot_start_y)
 		spr(btn_use_sprite_index, draw_tarot_start_x, draw_tarot_start_y + card_height)
+		spr(btn_sell_sprite_index, draw_tarot_start_x - card_width, draw_tarot_start_y)
+		print("$"..calculate_sell_price(tarot.price), draw_tarot_start_x - card_width, draw_tarot_start_y + card_height + 1, 7)
 		tarot.pos_x = draw_tarot_start_x
 		tarot.pos_y = draw_tarot_start_y
-		draw_tarot_start_x = draw_tarot_start_x + card_width + draw_hand_gap 
+		draw_tarot_start_x = draw_tarot_start_x + card_width + draw_hand_gap + 5 
 	end
 	print(#tarot_cards.. "/" .. tarot_limit, draw_tarot_start_x, draw_tarot_start_y, 7)
 end
 
 function draw_error_message()
-	print(error_message, 30, 35, 7)
+	print(error_message, 30, 35, 8)
 end
 
 function draw_special_card_pixels()
@@ -1060,6 +1080,24 @@ function use_button_clicked()
 			tarot.effect(tarot)
 		elseif mouse_sprite_collision(tarot.pos_x, tarot.pos_y + card_height, card_width, card_height) and #selected_cards == 0 then
 			error_message = "Cards must be selected\n to use this tarot card"
+		end
+	end
+end
+
+function sell_button_clicked()
+	for tarot in all(tarot_cards) do
+		if mouse_sprite_collision(tarot.pos_x - card_width, tarot.pos_y, card_width, card_height) then
+			printh("Selling tarot card: " .. tarot.name) --TODO test
+			money = money + calculate_sell_price(tarot.price)
+			del(tarot_cards, tarot)
+		end
+	end
+
+	for joker in all(joker_cards) do
+		if mouse_sprite_collision(joker.pos_x - card_width, joker.pos_y, card_width, card_height) then
+			printh("Selling joker card: " .. joker.name) --TODO test
+			money = money + calculate_sell_price(joker.price)
+			del(joker_cards, joker)
 		end
 	end
 end
@@ -1363,8 +1401,22 @@ function change_to_suit(suit, tarot)
 	end
 end
 
+function calculate_sell_price(price)
+	return ceil(price * .40)
+end
+
+function find_random_unique_shop_option(special_card_type, table_to_check)
+	local unique_table = {}
+	for card in all(special_cards[special_card_type]) do
+		if not contains(table_to_check, card) then	
+			add(unique_table, card)
+		end
+	end
+	return rnd(unique_table)
+end
+
 -- TEST
-function test_draw_table(table)
+function test_print_table(table)
 	local text = ""
 	for card in all(table) do
 		text = text .. " " .. card.rank .. card.suit .. card.order
@@ -1405,14 +1457,14 @@ __gfx__
 78877777799777777cc7777775577777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 78888887799999977cccccc775555557000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 77777777777777777777777777777777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb8aaa8a8a8a8a888800000000000000000000000000000000
-cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb888a8a8a888a8aaa00000000000000000000000000000000
-c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb8a8a8a8aaaaa8aaa00000000000000000000000000000000
-c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb888a888a888a88aa00000000000000000000000000000000
-c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbbaaaaaaaa8aaa8aaa00000000000000000000000000000000
-c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbbaa8a8aaa888a8aaa00000000000000000000000000000000
-c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bbaaa8aaaaaa8a8aaa00000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbbaaa8aaaa888a888800000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb8aaa8a8a8a8a8888bbbabbba000000000000000000000000
+cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb888a8a8a888a8aaabaaabaaa000000000000000000000000
+c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb8a8a8a8aaaaa8aaabbbabbaa000000000000000000000000
+c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb888a888a888a88aaaababaaa000000000000000000000000
+c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbbaaaaaaaa8aaa8aaabbbabbba000000000000000000000000
+c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbbaa8a8aaa888a8aaaaaaaaaaa000000000000000000000000
+c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bbaaa8aaaaaa8a8aaabaaabaaa000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbbaaa8aaaa888a8888bbbabbba000000000000000000000000
 cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
 cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88777877878787778b7777b777b7bb7bb000000000000000000000000000000000000000000000000
 c7c7c777c777c777e77e777e777e777e678c8c8c8c8c8c8c8787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
