@@ -409,6 +409,8 @@ special_cards = {
 					del(tarot_cards, tarot)
 					init_draw = true
 					sort_by_rank_decreasing(hand)
+					selected_cards = {}
+					hand_type_text = ""
 				else
 					sfx(sfx_error_message)
 					error_message = "Can only use this\n tarot card with 2 cards"
@@ -446,6 +448,16 @@ btn_reroll_sprite_index = 72
 btn_reroll_pos_x = 20 
 btn_reroll_pos_y = 70 
 
+btn_full_deck_pos_x = 12 
+btn_full_deck_pos_y = 100 
+btn_full_deck_text = "Full Deck"
+btn_remaining_deck_pos_x = 62 
+btn_remaining_deck_pos_y = 100 
+btn_remaining_deck_text = "Remaining Deck"
+btn_exit_view_deck_pox_x = 52
+btn_exit_view_deck_pox_y = 115 
+btn_exit_view_deck_text = "Exit"
+
 -- Sound Effects
 sfx_card_select = 0
 sfx_discard_btn_clicked = 1
@@ -466,6 +478,10 @@ shop_options = {}
 scored_cards = {}
 joker_cards = {}
 tarot_cards = {}
+spade_cards = {} 
+diamond_cards = {} 
+heart_cards = {} 
+club_cards = {}
 joker_limit = 5
 tarot_limit = 2
 reroll_price = 5
@@ -479,6 +495,7 @@ money = 4
 round = 1
 goal_score = 300
 in_shop = false
+is_viewing_deck = false
 money_earned_per_round = 3
 
 -- Input
@@ -513,11 +530,18 @@ function _update()
 		discard_button_clicked()
 		use_button_clicked()
 		sell_button_clicked()
+		view_deck_button_clicked()
+		full_deck_button_clicked()
+		remaining_deck_button_clicked()
+		exit_view_deck_button_clicked()
 	elseif btnp(5) and in_shop then
 		go_next_button_clicked()
 		buy_button_clicked()
 		reroll_button_clicked()
 		sell_button_clicked()
+		view_deck_button_clicked()
+		full_deck_button_clicked()
+		exit_view_deck_button_clicked()
 	end
 
     -- Check keyboard
@@ -529,13 +553,20 @@ function _draw()
     -- draw stuff
     cls()
 	-- conditional draw
-	if in_shop then
+	if in_shop and not is_viewing_deck then
 		draw_background()
 		draw_score()
 		draw_shop()
 		draw_go_next_and_reroll_button()
 		draw_shop_options()
-	else
+		draw_deck()
+		-- always draw
+		draw_hands_and_discards()
+		draw_money()
+		draw_round_and_score()
+		draw_joker_cards()
+		draw_tarot_cards()
+	elseif not in_shop and not is_viewing_deck then
     	draw_background()
     	draw_hand()
 		draw_play_discard_buttons()
@@ -544,13 +575,21 @@ function _draw()
 		draw_hand_type(hand_type_text)
 		draw_special_card_pixels()
 		draw_deck()
+		-- always draw
+		draw_hands_and_discards()
+		draw_money()
+		draw_round_and_score()
+		draw_joker_cards()
+		draw_tarot_cards()
+	elseif is_viewing_deck then
+		draw_background()
+		draw_view_of_deck()
+		draw_full_deck_button()
+		if not in_shop then
+			draw_remaining_deck_button()
+		end
+		draw_exit_button()
 	end
-	-- always draw
-	draw_hands_and_discards()
-	draw_money()
-	draw_round_and_score()
-	draw_joker_cards()
-	draw_tarot_cards()
     draw_mouse(mx, my)
 	draw_error_message()
 end
@@ -622,7 +661,7 @@ end
 
 function update_round_and_score() 
 	round = round + 1
-	goal_score = goal_score + 150
+	goal_score = flr(goal_score * 1.5)
 end
 
 function win_state()
@@ -649,6 +688,8 @@ end
 function lose_state()
 	sfx(sfx_lose_state)
 	base_deck = create_base_deck()
+	tarot_cards = {}
+	joker_cards = {}
 	round = 1
 	goal_score = 300
 	card_selected_count = 0
@@ -825,7 +866,30 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
-	--add(shop_options, get_special_card_by_name("Increase Rank", "Tarots"))
+	--add(shop_options, get_special_card_by_name("Change to Diamonds", "Tarots"))
+end
+
+function create_view_of_deck(table)
+	heart_cards = {}
+	diamond_cards = {}
+	club_cards = {}
+	spade_cards = {}
+
+	for card in all(table) do
+		if card.suit == "H" then
+			add(heart_cards, card)
+		elseif card.suit == "D" then
+			add(diamond_cards, card)
+		elseif card.suit == "C" then
+			add(club_cards, card)
+		elseif card.suit == "S" then
+			add(spade_cards, card)
+		end
+	end
+	sort_by_rank_decreasing(heart_cards)		
+	sort_by_rank_decreasing(diamond_cards)		
+	sort_by_rank_decreasing(club_cards)		
+	sort_by_rank_decreasing(spade_cards)		
 end
 
 -- Graphics 
@@ -983,6 +1047,69 @@ function draw_special_card_pixels()
 	end
 end
 
+function draw_each_card_in_table(table, start_x, start_y, gap)
+	local original_start_x = start_x
+	for card in all(table) do
+		if start_x > screen_width - card_width then
+			start_y = start_y + card_height				
+			start_x	= original_start_x
+			spr(card.sprite_index, start_x, start_y)	
+			card.pos_x = start_x 
+			card.pos_y = start_y 
+			start_x = start_x + card_width + gap 
+		else
+			spr(card.sprite_index, start_x, start_y)	
+			card.pos_x = start_x 
+			card.pos_y = start_y 
+			start_x = start_x + card_width + gap 
+		end
+		
+		if card.effect_chips == 30 then
+			pset(card.pos_x + card_width - 1, card.pos_y, 12)
+		elseif card.mult == 4 then
+			pset(card.pos_x + card_width - 1, card.pos_y, 8)
+		end
+	end
+end
+
+function draw_view_of_deck()
+	view_deck_card_gap_x = 1
+	view_deck_card_gap_y = 20
+	draw_start_pos_x = 5 
+	draw_start_pos_y = 10
+	draw_each_card_in_table(heart_cards, draw_start_pos_x, draw_start_pos_y, view_deck_card_gap_x)
+
+	draw_start_pos_y = draw_start_pos_y + view_deck_card_gap_y 
+	draw_each_card_in_table(club_cards, draw_start_pos_x, draw_start_pos_y, view_deck_card_gap_x)
+
+	draw_start_pos_y = draw_start_pos_y + view_deck_card_gap_y 
+	draw_each_card_in_table(diamond_cards, draw_start_pos_x, draw_start_pos_y, view_deck_card_gap_x)
+
+	draw_start_pos_y = draw_start_pos_y + view_deck_card_gap_y 
+	draw_each_card_in_table(spade_cards, draw_start_pos_x, draw_start_pos_y, view_deck_card_gap_x)
+end
+
+function draw_button_with_text(x, y, text, color)
+    local text_width = #text * 4
+    local text_height = 7
+
+    rectfill(x-2, y-2, x + text_width + 2, y + text_height + 2, color)
+
+    print(text, x, y, 7)
+end
+
+function draw_full_deck_button()
+	draw_button_with_text(btn_full_deck_pos_x, btn_full_deck_pos_y, btn_full_deck_text, 12)
+end
+
+function draw_remaining_deck_button()
+	draw_button_with_text(btn_remaining_deck_pos_x, btn_remaining_deck_pos_y, btn_remaining_deck_text, 12)
+end
+
+function draw_exit_button()
+	draw_button_with_text(btn_exit_view_deck_pox_x, btn_exit_view_deck_pox_y, btn_exit_view_deck_text, 8)
+end
+
 -- Inputs
 function hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
@@ -1068,9 +1195,9 @@ end
 function buy_button_clicked()
 	for special_card in all(shop_options) do
 		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money >= special_card.price then
-			money = money - special_card.price
 			-- Joker
 			if special_card.type == "Joker" and #joker_cards < joker_limit then
+				money = money - special_card.price
 				sfx(sfx_buy_btn_clicked)
 				add(joker_cards, special_card)
 				del(shop_options, special_card)
@@ -1081,6 +1208,7 @@ function buy_button_clicked()
 
 			-- Tarot 
 			if special_card.type == "Tarot" and #tarot_cards < tarot_limit then
+				money = money - special_card.price
 				sfx(sfx_buy_btn_clicked)
 				if special_card.name == "Multiply Money by 2" then
 					special_card.effect()	
@@ -1096,6 +1224,7 @@ function buy_button_clicked()
 
 			-- Planet 
 			if special_card.type == "Planet" then	
+				money = money - special_card.price
 				sfx(sfx_buy_btn_clicked_planet)
 				special_card.effect()
 				del(shop_options, special_card)
@@ -1134,6 +1263,48 @@ function sell_button_clicked()
 			money = money + calculate_sell_price(joker.price)
 			del(joker_cards, joker)
 		end
+	end
+end
+
+function view_deck_button_clicked()
+	if mouse_sprite_collision(deck_sprite_pos_x, deck_sprite_pos_y, btn_width, btn_height) then
+		create_view_of_deck(base_deck)
+		is_viewing_deck = true
+
+		-- Reset stuff
+		card_selected_count = 0
+		selected_cards = {}
+		for card in all(hand) do
+			card.selected = false
+		end
+		init_draw = true
+		hand_type_text = ""
+		error_message = ""
+		sort_by_rank_decreasing(hand)
+	end
+end
+
+function full_deck_button_clicked()
+	width_and_height = get_button_width_and_height(btn_full_deck_pos_x, btn_full_deck_pos_y, btn_full_deck_text)
+	if mouse_sprite_collision(btn_full_deck_pos_x, btn_full_deck_pos_y, width_and_height[1], width_and_height[2]) then	
+		sfx(sfx_card_select)
+		create_view_of_deck(base_deck)
+	end
+end
+
+function remaining_deck_button_clicked()
+	local width_and_height = get_button_width_and_height(btn_remaining_deck_pos_x, btn_remaining_deck_pos_y, btn_remaining_deck_text)
+	if mouse_sprite_collision(btn_remaining_deck_pos_x, btn_remaining_deck_pos_y, width_and_height[1], width_and_height[2]) then	
+		sfx(sfx_card_select)
+		create_view_of_deck(shuffled_deck)
+	end
+end
+
+function exit_view_deck_button_clicked()
+	local width_and_height = get_button_width_and_height(btn_exit_view_deck_pox_x, btn_exit_view_deck_pox_y, btn_exit_view_deck_text)
+	if mouse_sprite_collision(btn_exit_view_deck_pox_x, btn_exit_view_deck_pox_y, width_and_height[1], width_and_height[2]) then	
+		sfx(sfx_card_select)
+		is_viewing_deck = false 
 	end
 end
 
@@ -1451,13 +1622,24 @@ function find_random_unique_shop_option(special_card_type, table_to_check)
 	return rnd(unique_table)
 end
 
+function get_button_width_and_height(x, y, text)
+	-- gets the button width from draw_button_with_text
+	local text_width = #text * 4
+    local text_height = 7
+    --rectfill(x-2, y-2, x + text_width + 2, y + text_height + 2, color) -- original math
+
+	local width = 4 + text_width
+	local height = 4 + text_height
+	return {width, height}
+end
+
 -- TEST
 function test_print_table(table)
 	local text = ""
 	for card in all(table) do
-		text = text .. " " .. card.rank .. card.suit .. card.order
-		printh(text)
+		text = text .. " " .. card.rank .. card.suit
 	end
+	printh(text)
 end
 
 __gfx__
