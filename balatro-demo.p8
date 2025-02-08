@@ -487,6 +487,7 @@ tarot_limit = 2
 reroll_price = 5
 hand_size = 8
 score = 0
+score_cap = 32767
 chips = 0
 mult = 0
 hands = 4
@@ -602,6 +603,9 @@ function score_hand()
 	end
 	score_jokers()
 	score = score + (chips * mult)
+	if score < 0 then
+		score = score_cap
+	end
 	chips = 0
 	mult = 0
 	hand_type_text = ""
@@ -662,6 +666,9 @@ end
 function update_round_and_score() 
 	round = round + 1
 	goal_score = flr(goal_score * 1.5)
+	if goal_score < 0 then
+		goal_score = score_cap
+	end
 end
 
 function win_state()
