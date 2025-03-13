@@ -584,8 +584,8 @@ tarot_limit = 2
 reroll_price = 5
 hand_size = 8
 score = bigscore:new(0)
-chips = 0
-mult = 0
+chips = bigscore:new(0)
+mult = bigscore:new(0)
 hands = 4
 discards = 4
 money = 4
@@ -699,8 +699,8 @@ function score_hand()
 	end
 	score_jokers()
 	score += (chips * mult)
-	chips = 0
-	mult = 0
+	chips = bigscore:new(0)
+	mult = bigscore:new(0)
 	hand_type_text = ""
 end
 
@@ -722,8 +722,8 @@ function update_selected_cards()
 	local hand_type = check_hand_type()
 	if hand_type ~= "None" then
 		hand_type_text = hand_type
-		chips = 0
-		mult = 0
+		chips = bigscore:new(0)
+		mult = bigscore:new(0)
 		chips = chips + hand_types[hand_type].base_chips
 		mult = mult + hand_types[hand_type].base_mult
 	end
@@ -801,7 +801,7 @@ function lose_state()
 	scored_cards = {}
 	shop_options = {}
 	hand = {}
-	hand_types = hand_types_copy -- TODO not working
+	hand_types = hand_types_copy
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
@@ -1038,7 +1038,7 @@ function draw_play_discard_buttons()
 end
 
 function draw_chips_and_mult()
-	print(chips .. " X " .. mult, 2, 70, 7)
+	print(chips:str() .. " X " .. mult:str(), 2, 70, 7)
 end
 
 function draw_score()
@@ -1213,7 +1213,7 @@ function hand_collision()
 	for x=1, #hand do
 		if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
 			my >= hand[x].pos_y and my < hand[x].pos_y + card_height then
-				sfx(sfx_card_select) --TODO test
+				sfx(sfx_card_select)
 				select_hand(hand[x])
 				break
 		end
