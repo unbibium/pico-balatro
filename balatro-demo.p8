@@ -1349,7 +1349,7 @@ function buy_button_clicked()
 			if special_card.type == "Tarot" and #tarot_cards < tarot_limit then
 				money = money - special_card.price
 				sfx(sfx_buy_btn_clicked)
-				if special_card.name == "Multiply Money by 2" then
+				if special_card.name == "the hermit" then
 					special_card.effect()	
 					del(shop_options, special_card)
 				else
