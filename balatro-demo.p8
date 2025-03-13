@@ -642,9 +642,10 @@ function _update()
 		exit_view_deck_button_clicked()
 	end
 
-    -- Check keyboard
-    --if stat(30) then
-    --	end
+	if btn(4) then	
+		deselect_all_selected_cards()
+	end
+
 end
 
 function _draw()
@@ -728,6 +729,16 @@ function update_selected_cards()
 		mult = bigscore:new(0)
 		chips = chips + hand_types[hand_type].base_chips
 		mult = mult + hand_types[hand_type].base_mult
+	end
+end
+
+function deselect_all_selected_cards()
+	for card in all(selected_cards) do
+		select_hand(card)
+		del(selected_cards, card)
+		chips = bigscore:new(0)
+		mult = bigscore:new(0)
+		hand_type_text = ""
 	end
 end
 
