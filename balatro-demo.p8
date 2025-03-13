@@ -1608,17 +1608,34 @@ function contains_flush(cards)
 end
 
 function contains_straight(cards)
-	if #cards == 5 then
-		sort_by_rank_decreasing(cards)
-		for x=1,#cards - 1 do
-			if cards[x].order != cards[x + 1].order + 1 then
-				return false	
-			end
+	if #cards ~= 5 then
+        return false
+    end
+
+	sort_by_rank_decreasing(cards)
+
+		
+	local is_normal_straight = true
+	for x=1,#cards - 1 do
+		if cards[x].order != cards[x + 1].order + 1 then
+			is_normal_straight = false
+			break
 		end
-		return true 
-	else
-		return false
 	end
+	if is_normal_straight then	
+		return true 
+	end
+
+	-- Check special A‐5 straight (A, 5, 4, 3, 2)
+    if cards[1].rank == 'A' and
+       cards[2].rank == '5' and
+       cards[3].rank == '4' and
+       cards[4].rank == '3' and
+       cards[5].rank == '2' then
+        return true
+    end
+
+	return false
 end
 
 function contains_three_of_a_kind(cards)
