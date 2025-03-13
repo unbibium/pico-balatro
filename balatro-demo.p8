@@ -447,26 +447,47 @@ function bigscore:str()
 	return tostr(self.v,2)
 end
 
-function bigscore:process_max()
-	if (self.v < 0) self.v=tonum("2000000000",2)
+-- infinity object, for when the
+-- amount flips into the negative
+naneinf = {}
+function naneinf:new(...)
+	return setmetatable({v=-1}, {
+		__index=self,
+		__add=self.__add,
+		__mul=self.__mul
+	})
 end
+
+function naneinf:str() return "naneinf" end
+function naneinf:__add(other) return self end
+function naneinf:__mul(other) return self end
+function naneinf:greater_or_equal(other) return true end
 
 -- allow mixing with ints
 -- in some math operations
 function bigscore:__add(other)
+	local result
 	if type(other) == 'number' then
-		return bigscore:new({v=self.v+(other>>16)})
+		result= bigscore:new({v=self.v+(other>>16)})
 	else
-		return bigscore:new({v=self.v+other.v})
+		if(other.v < 0) return naneinf:new()
+		result= bigscore:new({v=self.v+other.v})
 	end
+	if(result.v < 0) return naneinf:new()
+	return result
 end
 
 function bigscore:__mul(other)
+	local result
 	if type(other) == 'number' then
-		return bigscore:new({v=self.v*other})
+		result= bigscore:new({v=self.v*other})
 	else
-		return bigscore:new({v=self.v*(other.v<<16)})
+		result= bigscore:new({v=self.v*(other.v<<16)})
 	end
+	if result.v < 0 then
+		return naneinf:new()
+	end
+	return result
 end
 
 function bigscore:greater_or_equal(other)
@@ -476,6 +497,28 @@ function bigscore:greater_or_equal(other)
 		return self.v >= other.v
 	end
 end
+
+-- unit tests for score stuff
+function assert_score(actual,expected)
+	if actual:str() != expected then
+		cls()
+		print("expected \#3"..expected)
+		print("     was \#8"..actual:str())
+		assert(false)
+	end
+end
+
+assert_score( (bigscore:new(300) + 300), "600" )
+assert_score( (bigscore:new(300) + bigscore:new(300)), "600" )
+assert_score( (bigscore:new(300) * 1.5), "450" )
+assert_score( (bigscore:new(300) * bigscore:new(2)), "600" )
+assert_score( (bigscore:new(300) * 300), "90000" )
+assert_score( (bigscore:new(300) * bigscore:new(300)), "90000" )
+assert_score( (bigscore:new(300) * 300 * 300), "27000000" )
+assert_score( (bigscore:new(300) * 300 * 300 * 300), "naneinf" )
+assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
+
+-- deck sprite stuff
 
 deck_sprite_index = 68
 deck_sprite_pos_x = 105
@@ -541,7 +584,6 @@ tarot_limit = 2
 reroll_price = 5
 hand_size = 8
 score = bigscore:new(0)
-score_cap = tonum("2000000000",2)
 chips = 0
 mult = 0
 hands = 4
@@ -657,7 +699,6 @@ function score_hand()
 	end
 	score_jokers()
 	score += (chips * mult)
-	score:process_max()
 	chips = 0
 	mult = 0
 	hand_type_text = ""
@@ -717,8 +758,7 @@ end
 
 function update_round_and_score() 
 	round = round + 1
-	goal_score *= 1.5
-	goal_score:process_max()
+	goal_score = goal_score * 1.5
 end
 
 function win_state()
