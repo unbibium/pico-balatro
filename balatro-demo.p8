@@ -423,6 +423,103 @@ special_cards = {
 	}
 }
 
+-- Special object to support full 32-bit integers
+-- should work up to 2 billion
+--
+bigscore = {
+}
+
+function bigscore:new(val)
+	if type(val) == 'number' then
+		obj = {v = val >> 16}
+	else -- copy from object
+		obj = val
+	end
+	-- works for + and *, not >=
+	return setmetatable(obj, {
+		__index=self,
+		__add=self.__add,
+		__mul=self.__mul
+	})
+end
+
+function bigscore:str()
+	return tostr(self.v,2)
+end
+
+-- infinity object, for when the
+-- amount flips into the negative
+naneinf = {}
+function naneinf:new(...)
+	return setmetatable({v=-1}, {
+		__index=self,
+		__add=self.__add,
+		__mul=self.__mul
+	})
+end
+
+function naneinf:str() return "naneinf" end
+function naneinf:__add(other) return self end
+function naneinf:__mul(other) return self end
+function naneinf:greater_or_equal(other) return true end
+
+-- allow mixing with ints
+-- in some math operations
+function bigscore:__add(other)
+	local result
+	if type(other) == 'number' then
+		result= bigscore:new({v=self.v+(other>>16)})
+	else
+		if(other.v < 0) return naneinf:new()
+		result= bigscore:new({v=self.v+other.v})
+	end
+	if(result.v < 0) return naneinf:new()
+	return result
+end
+
+function bigscore:__mul(other)
+	local result
+	if type(other) == 'number' then
+		result= bigscore:new({v=self.v*other})
+	else
+		result= bigscore:new({v=self.v*(other.v<<16)})
+	end
+	if result.v < 0 then
+		return naneinf:new()
+	end
+	return result
+end
+
+function bigscore:greater_or_equal(other)
+	if type(other) == 'number' then
+		return self.v >= (other>>16)
+	elseif type(other) == 'table' then
+		return self.v >= other.v
+	end
+end
+
+-- unit tests for score stuff
+function assert_score(actual,expected)
+	if actual:str() != expected then
+		cls()
+		print("expected \#3"..expected)
+		print("     was \#8"..actual:str())
+		assert(false)
+	end
+end
+
+assert_score( (bigscore:new(300) + 300), "600" )
+assert_score( (bigscore:new(300) + bigscore:new(300)), "600" )
+assert_score( (bigscore:new(300) * 1.5), "450" )
+assert_score( (bigscore:new(300) * bigscore:new(2)), "600" )
+assert_score( (bigscore:new(300) * 300), "90000" )
+assert_score( (bigscore:new(300) * bigscore:new(300)), "90000" )
+assert_score( (bigscore:new(300) * 300 * 300), "27000000" )
+assert_score( (bigscore:new(300) * 300 * 300 * 300), "naneinf" )
+assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
+
+-- deck sprite stuff
+
 deck_sprite_index = 68
 deck_sprite_pos_x = 105
 deck_sprite_pos_y = 100
@@ -486,15 +583,14 @@ joker_limit = 5
 tarot_limit = 2
 reroll_price = 5
 hand_size = 8
-score = 0
-score_cap = 32767
-chips = 0
-mult = 0
+score = bigscore:new(0)
+chips = bigscore:new(0)
+mult = bigscore:new(0)
 hands = 4
 discards = 4
 money = 4
 round = 1
-goal_score = 300
+goal_score = bigscore:new(300)
 in_shop = false
 is_viewing_deck = false
 money_earned_per_round = 3
@@ -603,12 +699,9 @@ function score_hand()
 		mult = mult + card.mult
 	end
 	score_jokers()
-	score = score + (chips * mult)
-	if score < 0 then
-		score = score_cap
-	end
-	chips = 0
-	mult = 0
+	score += (chips * mult)
+	chips = bigscore:new(0)
+	mult = bigscore:new(0)
 	hand_type_text = ""
 end
 
@@ -630,8 +723,8 @@ function update_selected_cards()
 	local hand_type = check_hand_type()
 	if hand_type ~= "None" then
 		hand_type_text = hand_type
-		chips = 0
-		mult = 0
+		chips = bigscore:new(0)
+		mult = bigscore:new(0)
 		chips = chips + hand_types[hand_type].base_chips
 		mult = mult + hand_types[hand_type].base_mult
 	end
@@ -666,10 +759,7 @@ end
 
 function update_round_and_score() 
 	round = round + 1
-	goal_score = flr(goal_score * 1.5)
-	if goal_score < 0 then
-		goal_score = score_cap
-	end
+	goal_score = goal_score * 1.5
 end
 
 function win_state()
@@ -699,12 +789,12 @@ function lose_state()
 	tarot_cards = {}
 	joker_cards = {}
 	round = 1
-	goal_score = 300
+	goal_score = bigscore:new(300)
 	card_selected_count = 0
 	scored_cards = {}
 	hands = 4
 	discards = 4
-	score = 0
+	score = bigscore:new(0)
 	reroll_price = 5
 	shuffled_deck = shuffle_deck(base_deck)
 	reset_card_params()
@@ -712,7 +802,7 @@ function lose_state()
 	scored_cards = {}
 	shop_options = {}
 	hand = {}
-	hand_types = hand_types_copy -- TODO not working
+	hand_types = hand_types_copy
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
@@ -987,14 +1077,14 @@ function draw_play_discard_buttons()
 end
 
 function draw_chips_and_mult()
-	print(chips .. " X " .. mult, 2, 70, 7)
+	print(chips:str() .. " X " .. mult:str(), 2, 70, 7)
 end
 
 function draw_score()
 	if in_shop == false then
-		print("Score:" .. score, 2, 60, 7)
+		print("Score:" .. score:str(), 2, 60, 7)
 	else
-		print("Scored Last:" .. score, 30, 120, 7)
+		print("Scored Last:" .. score:str(), 30, 120, 7)
 	end
 end
 
@@ -1019,10 +1109,10 @@ end
 function draw_round_and_score()
 	if in_shop == false then
 		print("Round:" .. round, 2, 40, 7)
-		print("Goal Score:" .. goal_score, 2, 50, 7)
+		print("Goal Score:" .. goal_score:str(), 2, 50, 7)
 	else
 		print("Round:" .. round, 30, 100, 7)
-		print("Next Score:" .. goal_score, 30, 110, 7)
+		print("next goal:" .. goal_score:str(), 30, 110, 7)
 	end
 end
 
@@ -1162,7 +1252,7 @@ function hand_collision()
 	for x=1, #hand do
 		if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
 			my >= hand[x].pos_y and my < hand[x].pos_y + card_height then
-				sfx(sfx_card_select) --TODO test
+				sfx(sfx_card_select)
 				select_hand(hand[x])
 				break
 		end
@@ -1179,7 +1269,7 @@ function play_button_clicked()
 		sfx(sfx_play_btn_clicked)
 		hands = hands - 1
 		score_hand()
-		if score >= goal_score then
+		if score:greater_or_equal(goal_score) then
 			win_state()
 			in_shop = true
 		else
@@ -1221,7 +1311,7 @@ function go_next_button_clicked()
 		shop_options = {}
 		error_message = ""
 		reroll_price = 5
-		score = 0
+		score = bigscore:new(0)
 	end
 end
 
