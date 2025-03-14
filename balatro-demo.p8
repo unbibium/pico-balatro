@@ -31,6 +31,7 @@ ranks = {
 	{rank = '3', base_chips = 3},
 	{rank = '2', base_chips = 2},
 }	
+
 hand_types = {
 	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
@@ -66,10 +67,48 @@ function add_chips(i)
 	sfx(sfx_add_chips)
 	pause(5)
 end
--- shop data
+
+-- base card type
+card_obj={
+	type="card",
+	-- resettable params
+	selected=false,
+	pos_x=0,
+	pos_y=0
+}
+function card_obj:new(obj) 
+	return setmetatable(obj, {
+		__index=self
+	})
+end
+function card_obj:reset()
+	self.selected=false
+	self.pos_x=0
+	self.pos_y=0
+end
+function card_obj:draw_card()
+	self:draw_at(self.pos_x,self.pos_y)
+end
+function card_obj:draw_at(x,y)
+	pal(8,suit_colors[self.suit])
+	spr(self.sprite_index, self.pos_x, self.pos_y)
+	pal()
+end
+
+joker_obj=card_obj:new({
+			type = "Joker"
+})
+tarot_obj=card_obj:new({
+			type = "Tarot"
+})
+planet_obj=card_obj:new({
+			type = "Planet"
+})
+
+-- shop inventory
 special_cards = {
 	Jokers = {
-		{
+		joker_obj:new({
 			name = "Add 4 Mult",
 			price = 2,
 			effect = function()
@@ -77,9 +116,8 @@ special_cards = {
 			end,
 			sprite_index = 128,
 			description = "Adds 4 to your mult",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 8 Mult",
 			price = 3,
 			effect = function()
@@ -87,9 +125,8 @@ special_cards = {
 			end,
 			sprite_index = 129, 
 			description = "Adds 8 to your mult",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 12 Mult",
 			price = 4,
 			effect = function()
@@ -97,9 +134,8 @@ special_cards = {
 			end,
 			sprite_index = 130, 
 			description = "Adds 12 to your mult",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add Random Mult",
 			price = 4,
 			effect = function()
@@ -107,9 +143,8 @@ special_cards = {
 			end,
 			sprite_index = 131, 
 			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Times 1.5 Mult",
 			price = 6,
 			effect = function()
@@ -117,9 +152,8 @@ special_cards = {
 			end,
 			sprite_index = 132, 
 			description = "Multiplies your mult by 1.5",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Times 2 Mult",
 			price = 7,
 			effect = function()
@@ -127,9 +161,8 @@ special_cards = {
 			end,
 			sprite_index = 133, 
 			description = "Multiplies your mult by 2",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Times 3 Mult",
 			price = 8,
 			effect = function()
@@ -137,9 +170,8 @@ special_cards = {
 			end,
 			sprite_index = 134, 
 			description = "Multiplies your mult by 3",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 30 Chips",
 			price = 2,
 			effect = function()
@@ -147,9 +179,8 @@ special_cards = {
 			end,
 			sprite_index = 135, 
 			description = "Adds 30 to your chips",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 60 Chips",
 			price = 3,
 			effect = function()
@@ -157,9 +188,8 @@ special_cards = {
 			end,
 			sprite_index = 136, 
 			description = "Adds 60 to your chips",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 90 Chips",
 			price = 4,
 			effect = function()
@@ -167,9 +197,8 @@ special_cards = {
 			end,
 			sprite_index = 137, 
 			description = "Adds 90 to your chips",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add Random Chips",
 			price = 5,
 			effect = function()
@@ -184,11 +213,10 @@ special_cards = {
 			end,
 			sprite_index = 138, 
 			description = "adds a random amount of chips.\nlowest being 0, highest being 150",
-			type = "Joker"
-		}
+		})
 	},
 	Planets = {
-		{
+		planet_obj:new({
 			name = "Level Up Royal Flush",
 			price = 5,
 			effect = function()
@@ -196,9 +224,8 @@ special_cards = {
 			end,
 			sprite_index = 153,
 			description = "levels up the royal flush.\n+ 5 mult and + 50 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "Neptune",
 			price = 5,
 			effect = function()
@@ -206,9 +233,8 @@ special_cards = {
 			end,
 			sprite_index = 152,
 			description = "levels up the straight flush.\n+ 4 mult and + 40 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "Mars",
 			price = 4,
 			effect = function()
@@ -216,9 +242,8 @@ special_cards = {
 			end,
 			sprite_index = 151,
 			description = "levels up the Four of a Kind.\n+ 3 mult and + 30 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "earth",
 			price = 3,
 			effect = function()
@@ -226,9 +251,8 @@ special_cards = {
 			end,
 			sprite_index = 150,
 			description = "levels up the full house.\n+ 2 mult and + 25 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "jupiter",
 			price = 3,
 			effect = function()
@@ -236,9 +260,8 @@ special_cards = {
 			end,
 			sprite_index = 149,
 			description = "levels up the Flush.\n+ 2 mult and + 15 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "saturn",
 			price = 3,
 			effect = function()
@@ -246,9 +269,8 @@ special_cards = {
 			end,
 			sprite_index = 148,
 			description = "levels up the straight.\n+ 3 mult and + 30 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "venus",
 			price = 2,
 			effect = function()
@@ -256,9 +278,8 @@ special_cards = {
 			end,
 			sprite_index = 147,
 			description = "levels up the three of a kind.\n+ 2 mult and + 20 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "uranus",
 			price = 2,
 			effect = function()
@@ -266,9 +287,8 @@ special_cards = {
 			end,
 			sprite_index = 146,
 			description = "levels up the two pair\n+ 1 mult and + 20 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "mercury",
 			price = 1,
 			effect = function()
@@ -276,9 +296,8 @@ special_cards = {
 			end,
 			sprite_index = 145,
 			description = "levels up the pair.\n+ 1 mult and + 15 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "pluto",
 			price = 1,
 			effect = function()
@@ -286,11 +305,10 @@ special_cards = {
 			end,
 			sprite_index = 144,
 			description = "levels up the high card.\n+ 1 mult and + 10 chips",
-			type = "Planet"
-		}
+		})
 	},
 	Tarots = {
-		{
+		tarot_obj:new({
 			name = "strength",
 			price = 2,
 			effect = function(tarot)
@@ -315,9 +333,8 @@ special_cards = {
 			end,
 			sprite_index = 160,
 			description = "increases the rank of two\nselected cards by 1",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the sun",
 			price = 2,
 			effect = function(tarot)
@@ -325,9 +342,8 @@ special_cards = {
 			end,
 			sprite_index = 161,
 			description = "changes the suit of 3 selected \ncards to hearts",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the star",
 			price = 2,
 			effect = function(tarot)
@@ -335,9 +351,8 @@ special_cards = {
 			end,
 			sprite_index = 162,
 			description = "changes the suit of 3 selected \ncards to diamonds",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the moon",
 			price = 2,
 			effect = function(tarot)
@@ -345,9 +360,8 @@ special_cards = {
 			end,
 			sprite_index = 163,
 			description = "changes the suit of 3 selected \ncards to clubs",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the world",
 			price = 2,
 			effect = function(tarot)
@@ -355,9 +369,8 @@ special_cards = {
 			end,
 			sprite_index = 164,
 			description = "changes the suit of 3 selected \ncards to spades",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the empress",
 			price = 2,
 			effect = function(tarot)
@@ -379,9 +392,8 @@ special_cards = {
 			end,
 			sprite_index = 165,
 			description = "gives two cards the ability\nto add 4 mult when scored",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the hierophant",
 			price = 2,
 			effect = function(tarot)
@@ -403,9 +415,8 @@ special_cards = {
 			end,
 			sprite_index = 166,
 			description = "gives two cards the ability\nto add 30 chips when scored",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the hermit",
 			price = 4,
 			effect = function()
@@ -417,9 +428,8 @@ special_cards = {
 			end,
 			sprite_index = 167,
 			description = "Multiplies your money by\n2 with the max being 20",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the hanged man",
 			price = 2,
 			effect = function(tarot)
@@ -442,8 +452,7 @@ special_cards = {
 			end,
 			sprite_index = 168,
 			description = "Deletes two selected\ncards from the deck",
-			type = "Tarot"
-		},
+		})
 	}
 }
 
@@ -637,7 +646,6 @@ function _init()
 	poke(0x5f2d, 0x3) -- mouse stuff?
 	build_sprite_index_lookup_table()
 	make_hand_types_copy()
-	add_resettable_params_to_special_cards()
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
 	deal_hand(shuffled_deck, hand_size)
@@ -903,7 +911,7 @@ function create_base_deck()
 	-- Create deck
 	for x=1,#ranks do
 		for y=1,#suits do
-			card_info = {
+			card_info = card_obj:new({
 				rank = ranks[x].rank,
 				suit = suits[y],
 				chips = ranks[x].base_chips,
@@ -912,10 +920,8 @@ function create_base_deck()
 				sprite_index = sprite_index_lookup_table[ranks[x]["rank"]],
 				order = ranks[x].order,
 				-- Resettable params
-				selected = false,
-				pos_x = 0,
-				pos_y = 0
-			}
+				selected = false
+			})
 			add(base_deck, card_info)
 		end
 	end
@@ -966,24 +972,6 @@ function build_sprite_index_lookup_table()
 	-- Create deck
 	for x=1,#ranks do
 		sprite_index_lookup_table[ranks[x]["rank"]] = x-1
-	end
-end
-
-function add_resettable_params_to_special_cards()
-	for joker in all(special_cards["Jokers"]) do
-		joker.selected = false
-		joker.pos_x = 0 
-		joker.pos_y = 0 
-	end
-	for planet in all(special_cards["Planets"]) do
-		planet.selected = false
-		planet.pos_x = 0 
-		planet.pos_y = 0 
-	end
-	for tarot in all(special_cards["Tarots"]) do
-		tarot.selected = false
-		tarot.pos_x = 0
-		tarot.pos_y = 0
 	end
 end
 
@@ -1039,27 +1027,20 @@ function draw_background()
     rectfill(0, 0, 128, 128, 3) 
 end
 
-function draw_card(card, x, y)
-    pal(8,suit_colors[card.suit])
-    spr(card.sprite_index, x, y)
-    -- print(card.sprite_index,x,y+8)
-    pal()
-end
-
 function draw_hand()	
 	draw_hand_start_x = 15	
 	draw_hand_start_y = 90 
 	if init_draw then
 		for x=1,#hand do
-			draw_card(hand[x], draw_hand_start_x, draw_hand_start_y)
 			hand[x].pos_x = draw_hand_start_x
 			hand[x].pos_y = draw_hand_start_y
+			hand[x]:draw_card()
 			draw_hand_start_x += card_width + draw_hand_gap
 		end
 		init_draw = false
 	else
 		for x=1,#hand do
- 	   		draw_card(hand[x], hand[x].pos_x, hand[x].pos_y) 
+ 	   		hand[x]:draw_card()
 		end
 	end
 end
@@ -1240,12 +1221,12 @@ function draw_each_card_in_table(table, start_x, start_y, gap)
 		if start_x > screen_width - card_width then
 			start_y = start_y + card_height				
 			start_x	= original_start_x
-			draw_card(card, start_x, start_y)
+			card:draw_at(start_x, start_y)
 			card.pos_x = start_x 
 			card.pos_y = start_y 
 			start_x = start_x + card_width + gap 
 		else
-			draw_card(card, start_x, start_y)
+			card:draw_at(start_x, start_y)
 			card.pos_x = start_x 
 			card.pos_y = start_y 
 			start_x = start_x + card_width + gap 
