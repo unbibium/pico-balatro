@@ -11,6 +11,7 @@ hand_type_text = ""
 draw_hand_gap = 4 
 draw_special_cards_gap = 10
 init_draw = true 
+sparkles = {}
 max_selected = 5
 card_selected_count = 0
 suits = {'H', 'D', 'C', 'S'}
@@ -52,20 +53,51 @@ function pause(frames)
 		yield()
 	end
 end
-function multiply_mult(i)
-	mult += i
+function multiply_mult(i, card)
+	if(i == 0) return pause(1)
+	mult *= i
 	sfx(sfx_multiply_mult)
+	add_sparkle(18,card)
 	pause(7)
 end
-function add_mult(i)
+function add_mult(i, card)
+	if(i == 0) return pause(1)
 	mult += i
 	sfx(sfx_add_mult)
+	add_sparkle(17,card)
 	pause(5)
 end
-function add_chips(i)
+function add_chips(i, card)
+	if(i == 0) return pause(1)
 	chips += i
 	sfx(sfx_add_chips)
+	add_sparkle(16,card)
 	pause(5)
+end
+
+-- sparkles
+function add_sparkle(sprite_index,source)
+	if(source==nil or max(0,source.pos_y) < 1)return
+	add(sparkles, {
+		x=source.pos_x,
+		y=source.pos_y,
+		sprite_index=sprite_index,
+		frames=8
+	})
+end
+
+function draw_sparkles()
+	palt(0x0010) -- green transparent
+	for i=#sparkles,1,-1 do
+		sp=sparkles[i]
+		spr(sp.sprite_index,sp.x,sp.y)
+		if sp.frames>0 then
+			sp.frames -= 1
+			sp.y -= 1
+		else
+			deli(sparkles,i)
+		end
+	end
 end
 
 -- base card type
@@ -111,8 +143,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Add 4 Mult",
 			price = 2,
-			effect = function()
-				add_mult(4)
+			effect = function(self)
+				add_mult(4, self)
 			end,
 			sprite_index = 128,
 			description = "Adds 4 to your mult",
@@ -120,8 +152,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Add 8 Mult",
 			price = 3,
-			effect = function()
-				add_mult(8)
+			effect = function(self)
+				add_mult(8, self)
 			end,
 			sprite_index = 129, 
 			description = "Adds 8 to your mult",
@@ -129,8 +161,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Add 12 Mult",
 			price = 4,
-			effect = function()
-				add_mult(12)
+			effect = function(self)
+				add_mult(12, self)
 			end,
 			sprite_index = 130, 
 			description = "Adds 12 to your mult",
@@ -138,7 +170,7 @@ special_cards = {
 		joker_obj:new({
 			name = "Add Random Mult",
 			price = 4,
-			effect = function()
+			effect = function(self)
 				add_mult( flr(rnd(25), self) )
 			end,
 			sprite_index = 131, 
@@ -147,8 +179,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Times 1.5 Mult",
 			price = 6,
-			effect = function()
-				multiply_mult(1.5)
+			effect = function(self)
+				multiply_mult(1.5, self)
 			end,
 			sprite_index = 132, 
 			description = "Multiplies your mult by 1.5",
@@ -156,8 +188,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Times 2 Mult",
 			price = 7,
-			effect = function()
-				multiply_mult(2)
+			effect = function(self)
+				multiply_mult(2, self)
 			end,
 			sprite_index = 133, 
 			description = "Multiplies your mult by 2",
@@ -165,8 +197,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Times 3 Mult",
 			price = 8,
-			effect = function()
-				multiply_mult(3)
+			effect = function(self)
+				multiply_mult(3, self)
 			end,
 			sprite_index = 134, 
 			description = "Multiplies your mult by 3",
@@ -174,8 +206,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Add 30 Chips",
 			price = 2,
-			effect = function()
-				add_chips(30)
+			effect = function(self)
+				add_chips(30, self)
 			end,
 			sprite_index = 135, 
 			description = "Adds 30 to your chips",
@@ -183,8 +215,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Add 60 Chips",
 			price = 3,
-			effect = function()
-				add_chips(60)
+			effect = function(self)
+				add_chips(60, self)
 			end,
 			sprite_index = 136, 
 			description = "Adds 60 to your chips",
@@ -192,8 +224,8 @@ special_cards = {
 		joker_obj:new({
 			name = "Add 90 Chips",
 			price = 4,
-			effect = function()
-				add_chips(90)
+			effect = function(self)
+				add_chips(90, self)
 			end,
 			sprite_index = 137, 
 			description = "Adds 90 to your chips",
@@ -201,7 +233,7 @@ special_cards = {
 		joker_obj:new({
 			name = "Add Random Chips",
 			price = 5,
-			effect = function()
+			effect = function(self)
 				local chip_options = {}
 				local step = 10 
 				local amount = 0
@@ -209,7 +241,7 @@ special_cards = {
 					add(chip_options, amount)
 					amount = amount + step
 				end
-				add_chips(rnd(chip_options))
+				add_chips(rnd(chip_options),self)
 			end,
 			sprite_index = 138, 
 			description = "adds a random amount of chips.\nlowest being 0, highest being 150",
@@ -507,10 +539,10 @@ function bigscore:__add(other)
 	if type(other) == 'number' then
 		result= bigscore:new({v=self.v+(other>>16)})
 	else
-		if(other.v < 0) return naneinf:new()
+		if(other.v<0) return naneinf:new()
 		result= bigscore:new({v=self.v+other.v})
 	end
-	if(result.v < 0) return naneinf:new()
+	if(result.v<0) return naneinf:new()
 	return result
 end
 
@@ -734,6 +766,7 @@ function _draw()
     draw_mouse(mx, my)
     draw_tooltips()
 	draw_error_message()
+	draw_sparkles()
 end
 
 -- run as a coroutine so
@@ -754,7 +787,7 @@ end
 
 function score_jokers()
 	for joker in all(joker_cards) do
-		joker.effect()
+		joker:effect()
 	end
 end
 
@@ -1046,6 +1079,7 @@ function draw_hand()
 end
 
 function draw_mouse(x, y)
+	palt(0x8000)
 	spr(192, x, y)
 end
 
@@ -1109,7 +1143,9 @@ function draw_play_discard_buttons()
 end
 
 function draw_chips_and_mult()
-	print(chips:str() .. " X " .. mult:str(), 2, 70, 7)
+	print("\f7" .. chips:str() .. "\#3 X \#8" .. mult:str(), 2, 70, 7)
+	-- redraw to get good blue border
+	print("\#c\f7" .. chips:str(), 2, 70, 7)
 end
 
 function draw_score()
@@ -1839,14 +1875,14 @@ __gfx__
 78777787787788777877787778777877787877877777778778777787777777877877778777777787777778777777778778877777000000000000000000000000
 78777787787778877788878777888877787888877777778778888887777777877888888778888887777778777888888778888887000000000000000000000000
 77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb1bbbbbb2b2bbbb88888bbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b1c1bbbb28282bbb87878bbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+1ccc1bbbb282bbbb88788bbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b1c1bbbb28282bbb87878bbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bb1bbbbbb2b2bbbb88888bbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
