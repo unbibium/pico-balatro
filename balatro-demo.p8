@@ -424,6 +424,10 @@ special_cards = {
 	}
 }
 
+-- if set, then resume this
+-- coroutine in main loop
+animation=cocreate(print)
+
 -- Special object to support full 32-bit integers
 -- should work up to 2 billion
 --
@@ -615,10 +619,14 @@ function _init()
 end
 
 function _update()
+ -- check score_hand animation
+	if costatus(animation)!='dead' then
+		coresume(animation)
+		return
+	end
     --register inputs
     mx = stat(32)
     my = stat(33)
-
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
 	if btnp(5) and not in_shop then 
@@ -694,6 +702,8 @@ function _draw()
 	draw_error_message()
 end
 
+-- run as a coroutine so
+-- yield commands can be used
 function score_hand()
 	-- Score cards 
 	for card in all(scored_cards) do
@@ -705,6 +715,7 @@ function score_hand()
 	chips = bigscore:new(0)
 	mult = bigscore:new(0)
 	hand_type_text = ""
+	finish_scoring_hand()
 end
 
 function score_jokers()
@@ -1282,7 +1293,10 @@ function play_button_clicked()
 	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 and hands > 0 then
 		sfx(sfx_play_btn_clicked)
 		hands = hands - 1
-		score_hand()
+		animation=cocreate(score_hand)
+end
+
+function finish_scoring_hand()
 		if score:greater_or_equal(goal_score) then
 			win_state()
 			in_shop = true
