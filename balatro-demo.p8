@@ -44,13 +44,36 @@ hand_types = {
 	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
 hand_types_copy = {}
+-- animations
+function pause(frames)
+	while frames>0 do
+		frames -= 1
+		yield()
+	end
+end
+function multiply_mult(i)
+	mult += i
+	sfx(sfx_multiply_mult)
+	pause(7)
+end
+function add_mult(i)
+	mult += i
+	sfx(sfx_add_mult)
+	pause(5)
+end
+function add_chips(i)
+	chips += i
+	sfx(sfx_add_chips)
+	pause(5)
+end
+-- shop data
 special_cards = {
 	Jokers = {
 		{
 			name = "Add 4 Mult",
 			price = 2,
 			effect = function()
-				mult = mult + 4
+				add_mult(4)
 			end,
 			sprite_index = 128,
 			description = "Adds 4 to your mult",
@@ -60,7 +83,7 @@ special_cards = {
 			name = "Add 8 Mult",
 			price = 3,
 			effect = function()
-				mult = mult + 8
+				add_mult(8)
 			end,
 			sprite_index = 129, 
 			description = "Adds 8 to your mult",
@@ -70,7 +93,7 @@ special_cards = {
 			name = "Add 12 Mult",
 			price = 4,
 			effect = function()
-				mult = mult + 12 
+				add_mult(12)
 			end,
 			sprite_index = 130, 
 			description = "Adds 12 to your mult",
@@ -80,7 +103,7 @@ special_cards = {
 			name = "Add Random Mult",
 			price = 4,
 			effect = function()
-				mult = mult + flr(rnd(25))
+				add_mult( flr(rnd(25), self) )
 			end,
 			sprite_index = 131, 
 			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
@@ -90,7 +113,7 @@ special_cards = {
 			name = "Times 1.5 Mult",
 			price = 6,
 			effect = function()
-				mult = mult * 1.5 
+				multiply_mult(1.5)
 			end,
 			sprite_index = 132, 
 			description = "Multiplies your mult by 1.5",
@@ -100,7 +123,7 @@ special_cards = {
 			name = "Times 2 Mult",
 			price = 7,
 			effect = function()
-				mult = mult * 2 
+				multiply_mult(2)
 			end,
 			sprite_index = 133, 
 			description = "Multiplies your mult by 2",
@@ -110,7 +133,7 @@ special_cards = {
 			name = "Times 3 Mult",
 			price = 8,
 			effect = function()
-				mult = mult * 3 
+				multiply_mult(3)
 			end,
 			sprite_index = 134, 
 			description = "Multiplies your mult by 3",
@@ -120,7 +143,7 @@ special_cards = {
 			name = "Add 30 Chips",
 			price = 2,
 			effect = function()
-				chips = chips + 30
+				add_chips(30)
 			end,
 			sprite_index = 135, 
 			description = "Adds 30 to your chips",
@@ -130,7 +153,7 @@ special_cards = {
 			name = "Add 60 Chips",
 			price = 3,
 			effect = function()
-				chips = chips + 60
+				add_chips(60)
 			end,
 			sprite_index = 136, 
 			description = "Adds 60 to your chips",
@@ -140,7 +163,7 @@ special_cards = {
 			name = "Add 90 Chips",
 			price = 4,
 			effect = function()
-				chips = chips + 90
+				add_chips(90)
 			end,
 			sprite_index = 137, 
 			description = "Adds 90 to your chips",
@@ -157,7 +180,7 @@ special_cards = {
 					add(chip_options, amount)
 					amount = amount + step
 				end
-				chips = chips + rnd(chip_options)
+				add_chips(rnd(chip_options))
 			end,
 			sprite_index = 138, 
 			description = "adds a random amount of chips.\nlowest being 0, highest being 150",
@@ -572,6 +595,9 @@ sfx_sell_btn_clicked = 7
 sfx_use_btn_clicked = 8
 sfx_load_game = 9
 sfx_error_message = 10
+sfx_add_chips=11
+sfx_add_mult=12
+sfx_multiply_mult=13
 
 -- Game State
 hand = {}
@@ -707,8 +733,8 @@ end
 function score_hand()
 	-- Score cards 
 	for card in all(scored_cards) do
-		chips = chips + card.chips + card.effect_chips
-		mult = mult + card.mult
+		add_chips( card.chips + card.effect_chips, card )
+		add_mult( card.mult, card )
 	end
 	score_jokers()
 	score += (chips * mult)
@@ -1651,7 +1677,7 @@ function contains_straight(cards)
 		return true 
 	end
 
-	-- Check special A‐5 straight (A, 5, 4, 3, 2)
+	-- Check special Aヌ█…5 straight (A, 5, 4, 3, 2)
     if cards[1].rank == 'A' and
        cards[2].rank == '5' and
        cards[3].rank == '4' and
@@ -1940,9 +1966,9 @@ __sfx__
 000100000000026150221501d1501915015150111500e1500b15008150051500315001150001500c15016150121501215012150131501c1501f15022150221500000000000000000000000000000000000000000
 00080000000002505025050250502e0502e0502e0502e05025050250502505029050290502905029050290502905029050290503800038000380003800038000380003800038000380003e0003e0003f00000000
 00060000000000f1500f1500f1500f1500f1500815008150081500815008150081500310003100080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000100001c0503055020550100501c5502555015550100501d5500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300001055010550235502355023530235100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000500002135021310393503931000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
