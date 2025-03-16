@@ -33,6 +33,10 @@ ranks = {
 	{rank = '2', base_chips = 2},
 }	
 
+-- object references
+joker_cards = {}
+tarot_cards = {}
+
 hand_types = {
 	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
@@ -100,41 +104,96 @@ function draw_sparkles()
 	end
 end
 
--- base card type
-card_obj={
+-- abstract item object 
+-- can be drawn on screen and reset
+item_obj={
 	type="card",
+	-- default size stuff
+	width=card_width,
+	height=card_height,
 	-- resettable params
 	selected=false,
 	pos_x=0,
 	pos_y=0
 }
-function card_obj:new(obj) 
+function item_obj:new(obj) 
 	return setmetatable(obj, {
 		__index=self
 	})
 end
-function card_obj:reset()
+function item_obj:place(x,y) 
+	self.pos_x=x
+	self.pos_y=y
+end
+function item_obj:reset()
 	self.selected=false
 	self.pos_x=0
 	self.pos_y=0
 end
-function card_obj:draw_card()
+function item_obj:draw()
 	self:draw_at(self.pos_x,self.pos_y)
 end
-function card_obj:draw_at(x,y)
-	pal(8,suit_colors[self.suit])
-	spr(self.sprite_index, self.pos_x, self.pos_y)
-	pal()
+function item_obj:draw_at(x,y)
+	spr(self.sprite_index, x, y)
 end
 
-joker_obj=card_obj:new({
-			type = "Joker"
+-- playing cards
+card_obj=item_obj:new({
+	type = "card",
+	effect_chips = 0,
+	mult = 0
 })
-tarot_obj=card_obj:new({
-			type = "Tarot"
+function card_obj:draw_at(x,y)
+	pal(8,suit_colors[self.suit])
+	spr(self.sprite_index, x, y)
+	pal()
+	-- draw enhancements
+	if self.effect_chips == 30 then
+		pset(self.pos_x + self.width - 1, self.pos_y, 12)
+	elseif self.mult == 4 then
+		pset(self.pos_x + self.width - 1, self.pos_y, 8)
+	end
+end
+
+-- special cards
+special_obj=item_obj:new({})
+function special_obj:describe()
+	-- window appears at bottom
+	rectfill(0,98,127,127,self.bg)
+	-- print first letter of type on right side
+	print("\^p"..self.type[1],120,99,self.fg)
+	spr(self.sprite_index,3,99)
+	print(self.name,card_width+8,99,self.fg)
+	print(self.description,1,110,self.fg)
+	print("\^p"..self.type[1],120,99,self.fg)
+end
+
+function special_obj:draw_at(x,y)
+	-- draw icon obviously
+	spr(self.sprite_index, x, y)
+	-- draw sell icon if owned
+	if in_shop and contains(shop_options,self) then
+		spr(btn_buy_sprite_index, x , y+self.height)
+		print("$"..self.price, x + self.width, y + self.height + 1, 7)
+	elseif contains(self.ref,self) then
+		spr(btn_sell_sprite_index, x - card_width, y)
+		print("$"..calculate_sell_price(self.price), x - card_width, y + card_height + 1, 7)
+		if self.usable then
+			spr(btn_use_sprite_index, x, y + card_height)
+		end
+	end
+end
+
+joker_obj=special_obj:new({
+			type = "Joker",bg=0,fg=7,
+			ref = joker_cards
 })
-planet_obj=card_obj:new({
-			type = "Planet"
+tarot_obj=special_obj:new({
+			type = "Tarot", bg=15, fg=1,
+			ref = tarot_cards, usable=true
+})
+planet_obj=special_obj:new({
+			type = "Planet", bg=12, fg=7
 })
 
 -- shop inventory
@@ -645,8 +704,6 @@ hand = {}
 selected_cards = {}
 shop_options = {}
 scored_cards = {}
-joker_cards = {}
-tarot_cards = {}
 spade_cards = {} 
 diamond_cards = {} 
 heart_cards = {} 
@@ -666,6 +723,14 @@ goal_score = bigscore:new(300)
 in_shop = false
 is_viewing_deck = false
 money_earned_per_round = 3
+
+-- clear a table while preserving
+-- object references to it
+function clear(table)
+	for i=#table,1,-1 do
+		deli(table,i)
+	end
+end
 
 -- Input
 mx = 0
@@ -725,9 +790,10 @@ end
 function _draw()
     -- draw stuff
     cls()
+    	draw_background()
+	-- print(stat(0),0,0,7)
 	-- conditional draw
 	if in_shop and not is_viewing_deck then
-		draw_background()
 		draw_score()
 		draw_shop()
 		draw_go_next_and_reroll_button()
@@ -740,13 +806,12 @@ function _draw()
 		draw_joker_cards()
 		draw_tarot_cards()
 	elseif not in_shop and not is_viewing_deck then
-    	draw_background()
     	draw_hand()
 		draw_play_discard_buttons()
 		draw_chips_and_mult()
 		draw_score()
 		draw_hand_type(hand_type_text)
-		draw_special_card_pixels()
+		-- draw_special_card_pixels()
 		draw_deck()
 		-- always draw
 		draw_hands_and_discards()
@@ -755,7 +820,6 @@ function _draw()
 		draw_joker_cards()
 		draw_tarot_cards()
 	elseif is_viewing_deck then
-		draw_background()
 		draw_view_of_deck()
 		draw_full_deck_button()
 		if not in_shop then
@@ -876,8 +940,8 @@ end
 function lose_state()
 	sfx(sfx_lose_state)
 	base_deck = create_base_deck()
-	tarot_cards = {}
-	joker_cards = {}
+	clear(tarot_cards)
+	clear(joker_cards)
 	round = 1
 	goal_score = bigscore:new(300)
 	card_selected_count = 0
@@ -948,12 +1012,8 @@ function create_base_deck()
 				rank = ranks[x].rank,
 				suit = suits[y],
 				chips = ranks[x].base_chips,
-				effect_chips = 0,
-				mult = 0,
 				sprite_index = sprite_index_lookup_table[ranks[x]["rank"]],
 				order = ranks[x].order,
-				-- Resettable params
-				selected = false
 			})
 			add(base_deck, card_info)
 		end
@@ -1061,19 +1121,18 @@ function draw_background()
 end
 
 function draw_hand()	
-	draw_hand_start_x = 15	
-	draw_hand_start_y = 90 
+	local x = 15	
+	local y = 90 
 	if init_draw then
-		for x=1,#hand do
-			hand[x].pos_x = draw_hand_start_x
-			hand[x].pos_y = draw_hand_start_y
-			hand[x]:draw_card()
-			draw_hand_start_x += card_width + draw_hand_gap
+		for i=1,#hand do
+			hand[i]:place(x,y)
+			hand[i]:draw()
+			x += hand[i].width + draw_hand_gap
 		end
 		init_draw = false
 	else
-		for x=1,#hand do
- 	   		hand[x]:draw_card()
+		for i=1,#hand do
+ 	   		hand[i]:draw()
 		end
 	end
 end
@@ -1086,39 +1145,21 @@ end
 function draw_tooltips(x,y)
 	for joker in all(joker_cards) do
 		if mouse_sprite_collision(joker.pos_x - card_width, joker.pos_y, card_width*2, card_height*2) then
-			describe_card(joker) return
+			joker:describe() return
 		end
 	end
 	for tarot in all(tarot_cards) do
 		if mouse_sprite_collision(tarot.pos_x - card_width, tarot.pos_y, card_width*2, card_height*2) then
-			describe_card(tarot) return
+			tarot:describe() return
 		end
 	end
 	if in_shop then
 		for special_card in all(shop_options) do
 			if mouse_sprite_collision(special_card.pos_x, special_card.pos_y, card_width, card_height*2) then
-				describe_card(special_card) return
+				special_card:describe() return
 			end
 		end
 	end
-end
-
-function describe_card(card)
-	if card.type == 'Joker' then
-		bg=0 fg=7 -- white on black
-	elseif card.type == 'Tarot' then
-		bg=15 fg=1 -- black on off-white
-	else -- planet
-		bg=12 fg=7 -- white on blue
-	end
-
-	-- window appears at bottom
-	rectfill(0,98,127,127,bg)
-	-- print first letter of type on right side
-	print("\^p"..card.type[1],120,99,fg)
-	spr(card.sprite_index,3,99)
-	print(card.name,card_width+8,99,fg)
-	print(card.description,1,110,fg)
 end
 
 function select_hand(card)
@@ -1195,84 +1236,51 @@ function draw_go_next_and_reroll_button()
 end
 
 function draw_shop_options()
-	draw_special_hand_start_x = 60	
-	draw_special_hand_start_y = 60 
-
+	local x = 60	
 	for special_card in all(shop_options) do
-   		spr(special_card.sprite_index, draw_special_hand_start_x, draw_special_hand_start_y)
-		spr(btn_buy_sprite_index, draw_special_hand_start_x, draw_special_hand_start_y + card_height)
-		print("$" .. special_card.price, draw_special_hand_start_x, draw_special_hand_start_y - card_height, 7)
-		special_card.pos_x = draw_special_hand_start_x
-		special_card.pos_y = draw_special_hand_start_y
-		draw_special_hand_start_x = draw_special_hand_start_x + card_width + draw_special_cards_gap
+		special_card:place(x,60)
+		special_card:draw()
+		x += card_width + draw_special_cards_gap
 	end
 end
 
 function draw_joker_cards()
-	draw_joker_start_x = 15	
-	draw_joker_start_y = 4 
+	local x = 15	
+	local y = 4 
 	for joker in all(joker_cards) do
-   		spr(joker.sprite_index, draw_joker_start_x, draw_joker_start_y)
-		spr(btn_sell_sprite_index, draw_joker_start_x - card_width, draw_joker_start_y)
-		print("$"..calculate_sell_price(joker.price), draw_joker_start_x - card_width, draw_joker_start_y + card_height + 1, 7)
-		joker.pos_x = draw_joker_start_x 
-		joker.pos_y = draw_joker_start_y 
-		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap + 5
+		joker:place(x,y)
+		joker:draw()
+		x += card_width + draw_hand_gap + 5
 	end
-	print(#joker_cards.. "/" .. joker_limit, draw_joker_start_x, draw_joker_start_y, 7)
+	print(#joker_cards.. "/" .. joker_limit, x, y, 7)
 end
 
 function draw_tarot_cards()
-	draw_tarot_start_x = 82	
-	draw_tarot_start_y = 20
+	local x = 82	
+	local y = 20
 	for tarot in all(tarot_cards) do
-   		spr(tarot.sprite_index, draw_tarot_start_x, draw_tarot_start_y)
-		spr(btn_use_sprite_index, draw_tarot_start_x, draw_tarot_start_y + card_height)
-		spr(btn_sell_sprite_index, draw_tarot_start_x - card_width, draw_tarot_start_y)
-		print("$"..calculate_sell_price(tarot.price), draw_tarot_start_x - card_width, draw_tarot_start_y + card_height + 1, 7)
-		tarot.pos_x = draw_tarot_start_x
-		tarot.pos_y = draw_tarot_start_y
-		draw_tarot_start_x = draw_tarot_start_x + card_width + draw_hand_gap + 5 
+		tarot:place(x,y)
+		tarot:draw()
+		x += card_width + draw_hand_gap + 5 
 	end
-	print(#tarot_cards.. "/" .. tarot_limit, draw_tarot_start_x, draw_tarot_start_y, 7)
+	print(#tarot_cards.. "/" .. tarot_limit, x, y, 7)
 end
 
 function draw_error_message()
 	print(error_message, 30, 35, 8)
 end
 
-function draw_special_card_pixels()
-	for card in all(hand) do
-		if card.effect_chips == 30 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 12)
-		elseif card.mult == 4 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 8)
-		end
-	end
-end
-
 function draw_each_card_in_table(table, start_x, start_y, gap)
 	local original_start_x = start_x
 	for card in all(table) do
 		if start_x > screen_width - card_width then
-			start_y = start_y + card_height				
+			start_y += card.height				
 			start_x	= original_start_x
-			card:draw_at(start_x, start_y)
-			card.pos_x = start_x 
-			card.pos_y = start_y 
-			start_x = start_x + card_width + gap 
-		else
-			card:draw_at(start_x, start_y)
-			card.pos_x = start_x 
-			card.pos_y = start_y 
-			start_x = start_x + card_width + gap 
 		end
+		card:draw_at(start_x, start_y)
+		card:place(start_x, start_y)
+		start_x += card.width + gap 
 		
-		if card.effect_chips == 30 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 12)
-		elseif card.mult == 4 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 8)
-		end
 	end
 end
 
