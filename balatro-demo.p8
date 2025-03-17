@@ -116,23 +116,46 @@ item_obj={
 	-- resettable params
 	selected=false,
 	pos_x=0,
-	pos_y=0
+	pos_y=0,
+	from_x=nil,
+	from_y=nil,
+	frames=0
 }
 function item_obj:new(obj) 
 	return setmetatable(obj, {
 		__index=self
 	})
 end
-function item_obj:place(x,y) 
+function item_obj:place(x,y,frames) 
+	if max(0,frames) > 0 then
+		self.from_x = self.pos_x
+		self.from_y = self.pos_y
+		self.frames = frames
+	end
 	self.pos_x=x
 	self.pos_y=y
 end
 function item_obj:reset()
 	self.selected=false
-	self.pos_x=0
-	self.pos_y=0
+	self.pos_x=deck_sprite_pos_x
+	self.pos_y=deck_sprite_pos_y
 end
 function item_obj:draw()
+	print(self.frames,40,0,7)
+	-- animation
+	if self.frames > 0 then
+		self.frames -= 1
+		if self.frames == 0 then
+			self.from_x = nil
+			self.from_y = nil
+		else
+			self.from_x += (self.pos_x-self.from_x) / self.frames
+			self.from_y += (self.pos_y-self.from_y) / self.frames
+			self:draw_at(self.from_x, self.from_y)
+			return
+		end
+	end
+	-- no animation
 	self:draw_at(self.pos_x,self.pos_y)
 end
 function item_obj:draw_at(x,y)
@@ -144,8 +167,15 @@ card_obj=item_obj:new({
 	type = "card",
 	height = 15, -- scant 2 tiles
 	effect_chips = 0,
-	mult = 0
+	mult = 0,
+	pos_x = 0,
+	pos_y = 0
 })
+function card_obj:reset()
+	self.selected=false
+	self.pos_x=0
+	self.pos_y=0
+end
 function card_obj:draw_at(x,y)
 	pal()
 	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
@@ -1172,11 +1202,11 @@ function select_hand(card)
 	if card.selected == false and card_selected_count < max_selected then 
 		card.selected = true
 		card_selected_count = card_selected_count + 1
-		card.pos_y = card.pos_y - 10
+		card:place(card.pos_x,card.pos_y-10,5)
 	elseif card.selected == true then	
 		card.selected = false
 		card_selected_count = card_selected_count - 1
-		card.pos_y = card.pos_y + 10
+		card:place(card.pos_x,card.pos_y+10,5)
 		if card_selected_count == 4 then error_message = "" end
 	else
 		sfx(sfx_error_message)
@@ -1334,8 +1364,6 @@ end
 function hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
 	for card in all(hand) do
-		--if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
-  --   my >= hand[x].pos_y and my < hand[x].pos_y + hand[x].height then
 		if mouse_sprite_collision(card.pos_x,card.pos_y,card.width,card.height) then
 				sfx(sfx_card_select)
 				select_hand(card)
