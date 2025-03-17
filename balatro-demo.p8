@@ -148,7 +148,7 @@ card_obj=item_obj:new({
 })
 function card_obj:draw_at(x,y)
 	pal()
-	rectfill(x-1,y-1,x-1+self.width,y-1+self.height,5)
+	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
 	palt(11,true)
 	local bgtile=15
 	if self.effect_chips == 30 then
@@ -658,8 +658,8 @@ assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
 
 -- deck sprite stuff
 
-deck_sprite_index = 68
-deck_sprite_pos_x = 105
+deck_sprite_index = 47
+deck_sprite_pos_x = 112
 deck_sprite_pos_y = 100
 
 -- buttons
@@ -1063,11 +1063,7 @@ end
 
 function reset_card_params()
 	for card in all(shuffled_deck) do
-		if card.pos_x != 0 or card.pos_y != 0 or card.selected != false then
-			card.pos_x = 0
-			card.pos_y = 0
-			card.selected = false
-		end
+		card:reset()
 	end
 end
 
@@ -1212,7 +1208,8 @@ function draw_hand_type()
 end
 
 function draw_deck()
-	spr(deck_sprite_index, deck_sprite_pos_x, deck_sprite_pos_y, 2, 2)	
+	rectfill(deck_sprite_pos_x-1,deck_sprite_pos_y-1,deck_sprite_pos_x+6,deck_sprite_pos_y+13,0)
+	spr(deck_sprite_index, deck_sprite_pos_x, deck_sprite_pos_y, 1, 1.875)
 	print(#shuffled_deck .. "/" .. #base_deck, deck_sprite_pos_x, deck_sprite_pos_y + 20, 7)
 end
 
