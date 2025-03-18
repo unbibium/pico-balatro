@@ -141,7 +141,6 @@ function item_obj:reset()
 	self.pos_y=deck_sprite_pos_y
 end
 function item_obj:draw()
-	print(self.frames,40,0,7)
 	-- animation
 	if self.frames > 0 then
 		self.frames -= 1
@@ -1240,7 +1239,7 @@ end
 function draw_deck()
 	rectfill(deck_sprite_pos_x-1,deck_sprite_pos_y-1,deck_sprite_pos_x+6,deck_sprite_pos_y+13,0)
 	spr(deck_sprite_index, deck_sprite_pos_x, deck_sprite_pos_y, 1, 1.875)
-	print(#shuffled_deck .. "/" .. #base_deck, deck_sprite_pos_x, deck_sprite_pos_y + 20, 7)
+	print(#shuffled_deck .. "/" .. #base_deck, deck_sprite_pos_x-9, deck_sprite_pos_y + 20, 7)
 end
 
 function draw_hands_and_discards()
