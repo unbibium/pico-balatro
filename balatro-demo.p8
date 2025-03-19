@@ -11,11 +11,13 @@ hand_type_text = ""
 draw_hand_gap = 4 
 draw_special_cards_gap = 10
 init_draw = true 
+sparkles = {}
 max_selected = 5
 card_selected_count = 0
 suits = {'H', 'D', 'C', 'S'}
 sprite_index_lookup_table = {}
 suit_colors = {S=5,C=12,H=8,D=9}
+suit_sprites = {S=16,C=17,H=18,D=19}
 ranks = {
 	{rank = 'A', base_chips = 11},
 	{rank = 'K', base_chips = 10},
@@ -31,6 +33,11 @@ ranks = {
 	{rank = '3', base_chips = 3},
 	{rank = '2', base_chips = 2},
 }	
+
+-- object references
+joker_cards = {}
+tarot_cards = {}
+
 hand_types = {
 	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
@@ -44,112 +51,287 @@ hand_types = {
 	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
 hand_types_copy = {}
+-- animations
+function pause(frames)
+	while frames>0 do
+		frames -= 1
+		yield()
+	end
+end
+function multiply_mult(i, card)
+	if(i == 0) return pause(1)
+	mult *= i
+	sfx(sfx_multiply_mult)
+	add_sparkle(34,card)
+	pause(7)
+end
+function add_mult(i, card)
+	if(i == 0) return pause(1)
+	mult += i
+	sfx(sfx_add_mult)
+	add_sparkle(33,card)
+	pause(5)
+end
+function add_chips(i, card)
+	if(i == 0) return pause(1)
+	chips += i
+	sfx(sfx_add_chips)
+	add_sparkle(32,card)
+	pause(5)
+end
+
+-- sparkles
+function add_sparkle(sprite_index,source)
+	if(source==nil or max(0,source.pos_y) < 1)return
+	add(sparkles, {
+		x=source.pos_x,
+		y=source.pos_y,
+		sprite_index=sprite_index,
+		frames=8
+	})
+end
+
+function draw_sparkles()
+	pal() -- all others normal
+	palt(0x0010) -- green transparent
+	for i=#sparkles,1,-1 do
+		sp=sparkles[i]
+		spr(sp.sprite_index,sp.x,sp.y)
+		if sp.frames>0 then
+			sp.frames -= 1
+			sp.y -= 1
+		else
+			deli(sparkles,i)
+		end
+	end
+end
+
+-- abstract item object 
+-- can be drawn on screen and reset
+item_obj={
+	type="card",
+	-- default size stuff
+	width=card_width,
+	height=card_height,
+	-- resettable params
+	selected=false,
+	pos_x=0,
+	pos_y=0,
+	from_x=nil,
+	from_y=nil,
+	frames=0
+}
+function item_obj:new(obj) 
+	return setmetatable(obj, {
+		__index=self
+	})
+end
+function item_obj:place(x,y,frames) 
+	if max(0,frames) > 0 then
+		self.from_x = self.pos_x
+		self.from_y = self.pos_y
+		self.frames = frames
+	end
+	self.pos_x=x
+	self.pos_y=y
+end
+function item_obj:reset()
+	self.selected=false
+	self.pos_x=deck_sprite_pos_x
+	self.pos_y=deck_sprite_pos_y
+end
+function item_obj:draw()
+	-- animation
+	if self.frames > 0 then
+		self.frames -= 1
+		if self.frames == 0 then
+			self.from_x = nil
+			self.from_y = nil
+		else
+			self.from_x += (self.pos_x-self.from_x) / self.frames
+			self.from_y += (self.pos_y-self.from_y) / self.frames
+			self:draw_at(self.from_x, self.from_y)
+			return
+		end
+	end
+	-- no animation
+	self:draw_at(self.pos_x,self.pos_y)
+end
+function item_obj:draw_at(x,y)
+	spr(self.sprite_index, x, y)
+end
+
+-- playing cards
+card_obj=item_obj:new({
+	type = "card",
+	height = 15, -- scant 2 tiles
+	effect_chips = 0,
+	mult = 0,
+	pos_x = 0,
+	pos_y = 0
+})
+function card_obj:reset()
+	self.selected=false
+	self.pos_x=0
+	self.pos_y=0
+end
+function card_obj:draw_at(x,y)
+	pal()
+	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
+	palt(11,true)
+	local bgtile=15
+	if self.effect_chips == 30 then
+		bgtile=13
+	elseif self.mult == 4 then
+		bgtile=14
+	end
+	pal(8,suit_colors[self.suit])
+	spr(bgtile,x,y,1,2)
+	-- overlay rank
+	spr(self.sprite_index, x, y)
+	-- overlay suit
+	spr(suit_sprites[self.suit],x,y+8)
+	pal()
+end
+
+-- special cards
+special_obj=item_obj:new({})
+function special_obj:describe()
+	-- window appears at bottom
+	rectfill(0,98,127,127,self.bg)
+	-- print first letter of type on right side
+	print("\^p"..self.type[1],120,99,self.fg)
+	spr(self.sprite_index,3,99)
+	print(self.name,card_width+8,99,self.fg)
+	print(self.description,1,110,self.fg)
+	print("\^p"..self.type[1],120,99,self.fg)
+end
+
+function special_obj:draw_at(x,y)
+	-- draw icon obviously
+	spr(self.sprite_index, x, y)
+	-- draw sell icon if owned
+	if in_shop and contains(shop_options,self) then
+		spr(btn_buy_sprite_index, x , y+self.height)
+		print("$"..self.price, x + self.width, y + self.height + 1, 7)
+	elseif contains(self.ref,self) then
+		spr(btn_sell_sprite_index, x - self.width, y)
+		print("$"..calculate_sell_price(self.price), x - card_width, y + card_height + 1, 7)
+		if self.usable then
+			spr(btn_use_sprite_index, x, y + self.height)
+		end
+	end
+end
+
+joker_obj=special_obj:new({
+			type = "Joker",bg=0,fg=7,
+			ref = joker_cards
+})
+tarot_obj=special_obj:new({
+			type = "Tarot", bg=15, fg=1,
+			ref = tarot_cards, usable=true
+})
+planet_obj=special_obj:new({
+			type = "Planet", bg=12, fg=7
+})
+
+-- shop inventory
 special_cards = {
 	Jokers = {
-		{
+		joker_obj:new({
 			name = "Add 4 Mult",
 			price = 2,
-			effect = function()
-				mult = mult + 4
+			effect = function(self)
+				add_mult(4, self)
 			end,
 			sprite_index = 128,
 			description = "Adds 4 to your mult",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 8 Mult",
 			price = 3,
-			effect = function()
-				mult = mult + 8
+			effect = function(self)
+				add_mult(8, self)
 			end,
 			sprite_index = 129, 
 			description = "Adds 8 to your mult",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 12 Mult",
 			price = 4,
-			effect = function()
-				mult = mult + 12 
+			effect = function(self)
+				add_mult(12, self)
 			end,
 			sprite_index = 130, 
 			description = "Adds 12 to your mult",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add Random Mult",
 			price = 4,
-			effect = function()
-				mult = mult + flr(rnd(25))
+			effect = function(self)
+				add_mult( flr(rnd(25), self) )
 			end,
 			sprite_index = 131, 
 			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Times 1.5 Mult",
 			price = 6,
-			effect = function()
-				mult = mult * 1.5 
+			effect = function(self)
+				multiply_mult(1.5, self)
 			end,
 			sprite_index = 132, 
 			description = "Multiplies your mult by 1.5",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Times 2 Mult",
 			price = 7,
-			effect = function()
-				mult = mult * 2 
+			effect = function(self)
+				multiply_mult(2, self)
 			end,
 			sprite_index = 133, 
 			description = "Multiplies your mult by 2",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Times 3 Mult",
 			price = 8,
-			effect = function()
-				mult = mult * 3 
+			effect = function(self)
+				multiply_mult(3, self)
 			end,
 			sprite_index = 134, 
 			description = "Multiplies your mult by 3",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 30 Chips",
 			price = 2,
-			effect = function()
-				chips = chips + 30
+			effect = function(self)
+				add_chips(30, self)
 			end,
 			sprite_index = 135, 
 			description = "Adds 30 to your chips",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 60 Chips",
 			price = 3,
-			effect = function()
-				chips = chips + 60
+			effect = function(self)
+				add_chips(60, self)
 			end,
 			sprite_index = 136, 
 			description = "Adds 60 to your chips",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add 90 Chips",
 			price = 4,
-			effect = function()
-				chips = chips + 90
+			effect = function(self)
+				add_chips(90, self)
 			end,
 			sprite_index = 137, 
 			description = "Adds 90 to your chips",
-			type = "Joker"
-		},
-		{
+		}),
+		joker_obj:new({
 			name = "Add Random Chips",
 			price = 5,
-			effect = function()
+			effect = function(self)
 				local chip_options = {}
 				local step = 10 
 				local amount = 0
@@ -157,15 +339,14 @@ special_cards = {
 					add(chip_options, amount)
 					amount = amount + step
 				end
-				chips = chips + rnd(chip_options)
+				add_chips(rnd(chip_options),self)
 			end,
 			sprite_index = 138, 
 			description = "adds a random amount of chips.\nlowest being 0, highest being 150",
-			type = "Joker"
-		}
+		})
 	},
 	Planets = {
-		{
+		planet_obj:new({
 			name = "Level Up Royal Flush",
 			price = 5,
 			effect = function()
@@ -173,9 +354,8 @@ special_cards = {
 			end,
 			sprite_index = 153,
 			description = "levels up the royal flush.\n+ 5 mult and + 50 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "Neptune",
 			price = 5,
 			effect = function()
@@ -183,9 +363,8 @@ special_cards = {
 			end,
 			sprite_index = 152,
 			description = "levels up the straight flush.\n+ 4 mult and + 40 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "Mars",
 			price = 4,
 			effect = function()
@@ -193,9 +372,8 @@ special_cards = {
 			end,
 			sprite_index = 151,
 			description = "levels up the Four of a Kind.\n+ 3 mult and + 30 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "earth",
 			price = 3,
 			effect = function()
@@ -203,9 +381,8 @@ special_cards = {
 			end,
 			sprite_index = 150,
 			description = "levels up the full house.\n+ 2 mult and + 25 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "jupiter",
 			price = 3,
 			effect = function()
@@ -213,9 +390,8 @@ special_cards = {
 			end,
 			sprite_index = 149,
 			description = "levels up the Flush.\n+ 2 mult and + 15 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "saturn",
 			price = 3,
 			effect = function()
@@ -223,9 +399,8 @@ special_cards = {
 			end,
 			sprite_index = 148,
 			description = "levels up the straight.\n+ 3 mult and + 30 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "venus",
 			price = 2,
 			effect = function()
@@ -233,9 +408,8 @@ special_cards = {
 			end,
 			sprite_index = 147,
 			description = "levels up the three of a kind.\n+ 2 mult and + 20 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "uranus",
 			price = 2,
 			effect = function()
@@ -243,9 +417,8 @@ special_cards = {
 			end,
 			sprite_index = 146,
 			description = "levels up the two pair\n+ 1 mult and + 20 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "mercury",
 			price = 1,
 			effect = function()
@@ -253,9 +426,8 @@ special_cards = {
 			end,
 			sprite_index = 145,
 			description = "levels up the pair.\n+ 1 mult and + 15 chips",
-			type = "Planet"
-		},
-		{
+		}),
+		planet_obj:new({
 			name = "pluto",
 			price = 1,
 			effect = function()
@@ -263,11 +435,10 @@ special_cards = {
 			end,
 			sprite_index = 144,
 			description = "levels up the high card.\n+ 1 mult and + 10 chips",
-			type = "Planet"
-		}
+		})
 	},
 	Tarots = {
-		{
+		tarot_obj:new({
 			name = "strength",
 			price = 2,
 			effect = function(tarot)
@@ -292,9 +463,8 @@ special_cards = {
 			end,
 			sprite_index = 160,
 			description = "increases the rank of two\nselected cards by 1",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the sun",
 			price = 2,
 			effect = function(tarot)
@@ -302,9 +472,8 @@ special_cards = {
 			end,
 			sprite_index = 161,
 			description = "changes the suit of 3 selected \ncards to hearts",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the star",
 			price = 2,
 			effect = function(tarot)
@@ -312,9 +481,8 @@ special_cards = {
 			end,
 			sprite_index = 162,
 			description = "changes the suit of 3 selected \ncards to diamonds",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the moon",
 			price = 2,
 			effect = function(tarot)
@@ -322,9 +490,8 @@ special_cards = {
 			end,
 			sprite_index = 163,
 			description = "changes the suit of 3 selected \ncards to clubs",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the world",
 			price = 2,
 			effect = function(tarot)
@@ -332,9 +499,8 @@ special_cards = {
 			end,
 			sprite_index = 164,
 			description = "changes the suit of 3 selected \ncards to spades",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the empress",
 			price = 2,
 			effect = function(tarot)
@@ -356,9 +522,8 @@ special_cards = {
 			end,
 			sprite_index = 165,
 			description = "gives two cards the ability\nto add 4 mult when scored",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the hierophant",
 			price = 2,
 			effect = function(tarot)
@@ -380,9 +545,8 @@ special_cards = {
 			end,
 			sprite_index = 166,
 			description = "gives two cards the ability\nto add 30 chips when scored",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the hermit",
 			price = 4,
 			effect = function()
@@ -394,9 +558,8 @@ special_cards = {
 			end,
 			sprite_index = 167,
 			description = "Multiplies your money by\n2 with the max being 20",
-			type = "Tarot"
-		},
-		{
+		}),
+		tarot_obj:new({
 			name = "the hanged man",
 			price = 2,
 			effect = function(tarot)
@@ -419,10 +582,13 @@ special_cards = {
 			end,
 			sprite_index = 168,
 			description = "Deletes two selected\ncards from the deck",
-			type = "Tarot"
-		},
+		})
 	}
 }
+
+-- if set, then resume this
+-- coroutine in main loop
+animation=cocreate(print)
 
 -- Special object to support full 32-bit integers
 -- should work up to 2 billion
@@ -471,10 +637,10 @@ function bigscore:__add(other)
 	if type(other) == 'number' then
 		result= bigscore:new({v=self.v+(other>>16)})
 	else
-		if(other.v < 0) return naneinf:new()
+		if(other.v<0) return naneinf:new()
 		result= bigscore:new({v=self.v+other.v})
 	end
-	if(result.v < 0) return naneinf:new()
+	if(result.v<0) return naneinf:new()
 	return result
 end
 
@@ -521,8 +687,8 @@ assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
 
 -- deck sprite stuff
 
-deck_sprite_index = 68
-deck_sprite_pos_x = 105
+deck_sprite_index = 47
+deck_sprite_pos_x = 112
 deck_sprite_pos_y = 100
 
 -- buttons
@@ -568,14 +734,15 @@ sfx_sell_btn_clicked = 7
 sfx_use_btn_clicked = 8
 sfx_load_game = 9
 sfx_error_message = 10
+sfx_add_chips=11
+sfx_add_mult=12
+sfx_multiply_mult=13
 
 -- Game State
 hand = {}
 selected_cards = {}
 shop_options = {}
 scored_cards = {}
-joker_cards = {}
-tarot_cards = {}
 spade_cards = {} 
 diamond_cards = {} 
 heart_cards = {} 
@@ -596,6 +763,14 @@ in_shop = false
 is_viewing_deck = false
 money_earned_per_round = 3
 
+-- clear a table while preserving
+-- object references to it
+function clear(table)
+	for i=#table,1,-1 do
+		deli(table,i)
+	end
+end
+
 -- Input
 mx = 0
 my = 0
@@ -607,7 +782,6 @@ function _init()
 	poke(0x5f2d, 0x3) -- mouse stuff?
 	build_sprite_index_lookup_table()
 	make_hand_types_copy()
-	add_resettable_params_to_special_cards()
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
 	deal_hand(shuffled_deck, hand_size)
@@ -615,10 +789,14 @@ function _init()
 end
 
 function _update()
+ -- check score_hand animation
+	if costatus(animation)!='dead' then
+		coresume(animation)
+		return
+	end
     --register inputs
     mx = stat(32)
     my = stat(33)
-
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
 	if btnp(5) and not in_shop then 
@@ -651,9 +829,10 @@ end
 function _draw()
     -- draw stuff
     cls()
+    	draw_background()
+	-- print(stat(0),0,0,7)
 	-- conditional draw
 	if in_shop and not is_viewing_deck then
-		draw_background()
 		draw_score()
 		draw_shop()
 		draw_go_next_and_reroll_button()
@@ -666,13 +845,12 @@ function _draw()
 		draw_joker_cards()
 		draw_tarot_cards()
 	elseif not in_shop and not is_viewing_deck then
-    	draw_background()
     	draw_hand()
 		draw_play_discard_buttons()
 		draw_chips_and_mult()
 		draw_score()
 		draw_hand_type(hand_type_text)
-		draw_special_card_pixels()
+		-- draw_special_card_pixels()
 		draw_deck()
 		-- always draw
 		draw_hands_and_discards()
@@ -681,7 +859,6 @@ function _draw()
 		draw_joker_cards()
 		draw_tarot_cards()
 	elseif is_viewing_deck then
-		draw_background()
 		draw_view_of_deck()
 		draw_full_deck_button()
 		if not in_shop then
@@ -692,24 +869,28 @@ function _draw()
     draw_mouse(mx, my)
     draw_tooltips()
 	draw_error_message()
+	draw_sparkles()
 end
 
+-- run as a coroutine so
+-- yield commands can be used
 function score_hand()
 	-- Score cards 
 	for card in all(scored_cards) do
-		chips = chips + card.chips + card.effect_chips
-		mult = mult + card.mult
+		add_chips( card.chips + card.effect_chips, card )
+		add_mult( card.mult, card )
 	end
 	score_jokers()
 	score += (chips * mult)
 	chips = bigscore:new(0)
 	mult = bigscore:new(0)
 	hand_type_text = ""
+	finish_scoring_hand()
 end
 
 function score_jokers()
 	for joker in all(joker_cards) do
-		joker.effect()
+		joker:effect()
 	end
 end
 
@@ -798,8 +979,8 @@ end
 function lose_state()
 	sfx(sfx_lose_state)
 	base_deck = create_base_deck()
-	tarot_cards = {}
-	joker_cards = {}
+	clear(tarot_cards)
+	clear(joker_cards)
 	round = 1
 	goal_score = bigscore:new(300)
 	card_selected_count = 0
@@ -866,19 +1047,13 @@ function create_base_deck()
 	-- Create deck
 	for x=1,#ranks do
 		for y=1,#suits do
-			card_info = {
+			card_info = card_obj:new({
 				rank = ranks[x].rank,
 				suit = suits[y],
 				chips = ranks[x].base_chips,
-				effect_chips = 0,
-				mult = 0,
 				sprite_index = sprite_index_lookup_table[ranks[x]["rank"]],
 				order = ranks[x].order,
-				-- Resettable params
-				selected = false,
-				pos_x = 0,
-				pos_y = 0
-			}
+			})
 			add(base_deck, card_info)
 		end
 	end
@@ -917,11 +1092,7 @@ end
 
 function reset_card_params()
 	for card in all(shuffled_deck) do
-		if card.pos_x != 0 or card.pos_y != 0 or card.selected != false then
-			card.pos_x = 0
-			card.pos_y = 0
-			card.selected = false
-		end
+		card:reset()
 	end
 end
 
@@ -929,24 +1100,6 @@ function build_sprite_index_lookup_table()
 	-- Create deck
 	for x=1,#ranks do
 		sprite_index_lookup_table[ranks[x]["rank"]] = x-1
-	end
-end
-
-function add_resettable_params_to_special_cards()
-	for joker in all(special_cards["Jokers"]) do
-		joker.selected = false
-		joker.pos_x = 0 
-		joker.pos_y = 0 
-	end
-	for planet in all(special_cards["Planets"]) do
-		planet.selected = false
-		planet.pos_x = 0 
-		planet.pos_y = 0 
-	end
-	for tarot in all(special_cards["Tarots"]) do
-		tarot.selected = false
-		tarot.pos_x = 0
-		tarot.pos_y = 0
 	end
 end
 
@@ -1002,82 +1155,57 @@ function draw_background()
     rectfill(0, 0, 128, 128, 3) 
 end
 
-function draw_card(card, x, y)
-    pal(8,suit_colors[card.suit])
-    spr(card.sprite_index, x, y)
-    -- print(card.sprite_index,x,y+8)
-    pal()
-end
-
 function draw_hand()	
-	draw_hand_start_x = 15	
-	draw_hand_start_y = 90 
+	local x = 15	
+	local y = 90 
 	if init_draw then
-		for x=1,#hand do
-			draw_card(hand[x], draw_hand_start_x, draw_hand_start_y)
-			hand[x].pos_x = draw_hand_start_x
-			hand[x].pos_y = draw_hand_start_y
-			draw_hand_start_x += card_width + draw_hand_gap
+		for i=1,#hand do
+			hand[i]:place(x,y)
+			hand[i]:draw()
+			x += hand[i].width + draw_hand_gap
 		end
 		init_draw = false
 	else
-		for x=1,#hand do
- 	   		draw_card(hand[x], hand[x].pos_x, hand[x].pos_y) 
+		for i=1,#hand do
+ 	   		hand[i]:draw()
 		end
 	end
 end
 
 function draw_mouse(x, y)
+	palt(0x8000)
 	spr(192, x, y)
 end
 
 function draw_tooltips(x,y)
 	for joker in all(joker_cards) do
 		if mouse_sprite_collision(joker.pos_x - card_width, joker.pos_y, card_width*2, card_height*2) then
-			describe_card(joker) return
+			joker:describe() return
 		end
 	end
 	for tarot in all(tarot_cards) do
 		if mouse_sprite_collision(tarot.pos_x - card_width, tarot.pos_y, card_width*2, card_height*2) then
-			describe_card(tarot) return
+			tarot:describe() return
 		end
 	end
 	if in_shop then
 		for special_card in all(shop_options) do
 			if mouse_sprite_collision(special_card.pos_x, special_card.pos_y, card_width, card_height*2) then
-				describe_card(special_card) return
+				special_card:describe() return
 			end
 		end
 	end
-end
-
-function describe_card(card)
-	if card.type == 'Joker' then
-		bg=0 fg=7 -- white on black
-	elseif card.type == 'Tarot' then
-		bg=15 fg=1 -- black on off-white
-	else -- planet
-		bg=12 fg=7 -- white on blue
-	end
-
-	-- window appears at bottom
-	rectfill(0,98,127,127,bg)
-	-- print first letter of type on right side
-	print("\^p"..card.type[1],120,99,fg)
-	spr(card.sprite_index,3,99)
-	print(card.name,card_width+8,99,fg)
-	print(card.description,1,110,fg)
 end
 
 function select_hand(card)
 	if card.selected == false and card_selected_count < max_selected then 
 		card.selected = true
 		card_selected_count = card_selected_count + 1
-		card.pos_y = card.pos_y - 10
+		card:place(card.pos_x,card.pos_y-10,5)
 	elseif card.selected == true then	
 		card.selected = false
 		card_selected_count = card_selected_count - 1
-		card.pos_y = card.pos_y + 10
+		card:place(card.pos_x,card.pos_y+10,5)
 		if card_selected_count == 4 then error_message = "" end
 	else
 		sfx(sfx_error_message)
@@ -1091,12 +1219,14 @@ function draw_play_discard_buttons()
 end
 
 function draw_chips_and_mult()
-	print(chips:str() .. " X " .. mult:str(), 2, 70, 7)
+	print("\f7" .. chips:str() .. "\#3 X \#8" .. mult:str(), 2, 70, 7)
+	-- redraw to get good blue border
+	print("\#c\f7" .. chips:str(), 2, 70, 7)
 end
 
 function draw_score()
 	if in_shop == false then
-		print("Score:" .. score:str(), 2, 60, 7)
+		print("score:" .. score:str(), 2, 57, 7)
 	else
 		print("Scored Last:" .. score:str(), 30, 120, 7)
 	end
@@ -1107,13 +1237,14 @@ function draw_hand_type()
 end
 
 function draw_deck()
-	spr(deck_sprite_index, deck_sprite_pos_x, deck_sprite_pos_y, 2, 2)	
-	print(#shuffled_deck .. "/" .. #base_deck, deck_sprite_pos_x, deck_sprite_pos_y + 20, 7)
+	rectfill(deck_sprite_pos_x-1,deck_sprite_pos_y-1,deck_sprite_pos_x+6,deck_sprite_pos_y+13,0)
+	spr(deck_sprite_index, deck_sprite_pos_x, deck_sprite_pos_y, 1, 1.875)
+	print(#shuffled_deck .. "/" .. #base_deck, deck_sprite_pos_x-9, deck_sprite_pos_y + 20, 7)
 end
 
 function draw_hands_and_discards()
-	print("H:" .. hands, 2, 100, 7)
-	print("D:" .. discards, 2, 110, 7)
+	print("h:" .. hands, 2, 102, 7)
+	print("d:" .. discards, 2, 111, 7)
 end
 
 function draw_money()
@@ -1122,11 +1253,11 @@ end
 
 function draw_round_and_score()
 	if in_shop == false then
-		print("Round:" .. round, 2, 40, 7)
-		print("Goal Score:" .. goal_score:str(), 2, 50, 7)
+		print("round:" .. round, 2, 39, 7)
+		print("goal:" .. goal_score:str(), 2, 48, 7)
 	else
-		print("Round:" .. round, 30, 100, 7)
-		print("next goal:" .. goal_score:str(), 30, 110, 7)
+		print("round:" .. round, 30, 102, 7)
+		print("next goal:" .. goal_score:str(), 30, 111, 7)
 	end
 end
 
@@ -1135,90 +1266,58 @@ function draw_shop()
 end
 
 function draw_go_next_and_reroll_button()
+	palt()
 	spr(btn_go_next_sprite_index, btn_go_next_pos_x, btn_go_next_pos_y, 2, 2)
 	spr(btn_reroll_sprite_index, btn_reroll_pos_x, btn_reroll_pos_y, 2, 2)
 	print("$"..reroll_price, btn_reroll_pos_x + flr(card_width / 2), btn_reroll_pos_y + btn_height, 7)
 end
 
 function draw_shop_options()
-	draw_special_hand_start_x = 60	
-	draw_special_hand_start_y = 60 
-
+	local x = 60	
 	for special_card in all(shop_options) do
-   		spr(special_card.sprite_index, draw_special_hand_start_x, draw_special_hand_start_y)
-		spr(btn_buy_sprite_index, draw_special_hand_start_x, draw_special_hand_start_y + card_height)
-		print("$" .. special_card.price, draw_special_hand_start_x, draw_special_hand_start_y - card_height, 7)
-		special_card.pos_x = draw_special_hand_start_x
-		special_card.pos_y = draw_special_hand_start_y
-		draw_special_hand_start_x = draw_special_hand_start_x + card_width + draw_special_cards_gap
+		special_card:place(x,60)
+		special_card:draw()
+		x += card_width + draw_special_cards_gap
 	end
 end
 
 function draw_joker_cards()
-	draw_joker_start_x = 15	
-	draw_joker_start_y = 4 
+	local x = 15	
+	local y = 4 
 	for joker in all(joker_cards) do
-   		spr(joker.sprite_index, draw_joker_start_x, draw_joker_start_y)
-		spr(btn_sell_sprite_index, draw_joker_start_x - card_width, draw_joker_start_y)
-		print("$"..calculate_sell_price(joker.price), draw_joker_start_x - card_width, draw_joker_start_y + card_height + 1, 7)
-		joker.pos_x = draw_joker_start_x 
-		joker.pos_y = draw_joker_start_y 
-		draw_joker_start_x = draw_joker_start_x + card_width + draw_hand_gap + 5
+		joker:place(x,y)
+		joker:draw()
+		x += card_width + draw_hand_gap + 5
 	end
-	print(#joker_cards.. "/" .. joker_limit, draw_joker_start_x, draw_joker_start_y, 7)
+	print(#joker_cards.. "/" .. joker_limit, x, y, 7)
 end
 
 function draw_tarot_cards()
-	draw_tarot_start_x = 82	
-	draw_tarot_start_y = 20
+	local x = 82	
+	local y = 20
 	for tarot in all(tarot_cards) do
-   		spr(tarot.sprite_index, draw_tarot_start_x, draw_tarot_start_y)
-		spr(btn_use_sprite_index, draw_tarot_start_x, draw_tarot_start_y + card_height)
-		spr(btn_sell_sprite_index, draw_tarot_start_x - card_width, draw_tarot_start_y)
-		print("$"..calculate_sell_price(tarot.price), draw_tarot_start_x - card_width, draw_tarot_start_y + card_height + 1, 7)
-		tarot.pos_x = draw_tarot_start_x
-		tarot.pos_y = draw_tarot_start_y
-		draw_tarot_start_x = draw_tarot_start_x + card_width + draw_hand_gap + 5 
+		tarot:place(x,y)
+		tarot:draw()
+		x += card_width + draw_hand_gap + 5 
 	end
-	print(#tarot_cards.. "/" .. tarot_limit, draw_tarot_start_x, draw_tarot_start_y, 7)
+	print(#tarot_cards.. "/" .. tarot_limit, x, y, 7)
 end
 
 function draw_error_message()
 	print(error_message, 30, 35, 8)
 end
 
-function draw_special_card_pixels()
-	for card in all(hand) do
-		if card.effect_chips == 30 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 12)
-		elseif card.mult == 4 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 8)
-		end
-	end
-end
-
 function draw_each_card_in_table(table, start_x, start_y, gap)
 	local original_start_x = start_x
 	for card in all(table) do
 		if start_x > screen_width - card_width then
-			start_y = start_y + card_height				
+			start_y += card.height				
 			start_x	= original_start_x
-			draw_card(card, start_x, start_y)
-			card.pos_x = start_x 
-			card.pos_y = start_y 
-			start_x = start_x + card_width + gap 
-		else
-			draw_card(card, start_x, start_y)
-			card.pos_x = start_x 
-			card.pos_y = start_y 
-			start_x = start_x + card_width + gap 
 		end
+		card:draw_at(start_x, start_y)
+		card:place(start_x, start_y)
+		start_x += card.width + gap 
 		
-		if card.effect_chips == 30 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 12)
-		elseif card.mult == 4 then
-			pset(card.pos_x + card_width - 1, card.pos_y, 8)
-		end
 	end
 end
 
@@ -1263,11 +1362,10 @@ end
 -- Inputs
 function hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
-	for x=1, #hand do
-		if mx >= hand[x].pos_x and mx < hand[x].pos_x + card_width and
-			my >= hand[x].pos_y and my < hand[x].pos_y + card_height then
+	for card in all(hand) do
+		if mouse_sprite_collision(card.pos_x,card.pos_y,card.width,card.height) then
 				sfx(sfx_card_select)
-				select_hand(hand[x])
+				select_hand(card)
 				break
 		end
 	end
@@ -1282,7 +1380,10 @@ function play_button_clicked()
 	if mouse_sprite_collision(btn_play_hand_pos_x, btn_play_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 and hands > 0 then
 		sfx(sfx_play_btn_clicked)
 		hands = hands - 1
-		score_hand()
+		animation=cocreate(score_hand)
+end
+
+function finish_scoring_hand()
 		if score:greater_or_equal(goal_score) then
 			win_state()
 			in_shop = true
@@ -1637,7 +1738,7 @@ function contains_straight(cards)
 		return true 
 	end
 
-	-- Check special A‐5 straight (A, 5, 4, 3, 2)
+	-- Check special Aヌ█…5 straight (A, 5, 4, 3, 2)
     if cards[1].rank == 'A' and
        cards[2].rank == '5' and
        cards[3].rank == '4' and
@@ -1810,54 +1911,54 @@ function test_print_table(table)
 end
 
 __gfx__
-77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777000000000000000000000000
-77788877787778877788887778888887787888877888888778888887788888877778887778888887777788777888888777888887000000000000000000000000
-77877877787887777877778777777877787877877877778778777787787777877787777778777777777878777777778778777787000000000000000000000000
-78888887788777777877778777777877787877877877778778888887777777877877777778888887778778777777778777777887000000000000000000000000
-78777787788887777877878778777877787877877888888778777787777777877888888777777787788888877788888777888777000000000000000000000000
-78777787787788777877787778777877787877877777778778777787777777877877778777777787777778777777778778877777000000000000000000000000
-78777787787778877788878777888877787888877777778778888887777777877888888778888887777778777888888778888887000000000000000000000000
-77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb8aaa8a8a8a8a8888bbbabbba000000000000000000000000
-cccccccccccccccce777e777e777eeee67c8c8c8c8c8c8c88887778877777788bb77777bb77777bb888a8a8a888a8aaabaaabaaa000000000000000000000000
-c777c7cc777c7c7ce7e7ee7ee7eeeeee678c8c8c8c8c8c8c8878888878888788bb7bbb7bb7bbbbbb8a8a8a8aaaaa8aaabbbabbaa000000000000000000000000
-c7c7c7cc7c7c7c7ce7e7ee7ee777eeee67c8c8c8c8c8c8c88788888878888788bb77777bb777bbbb888a888a888a88aaaababaaa000000000000000000000000
-c777c7cc777c7c7ce7e7ee7eeee7e77e678c8c8c8c8c8c8c8788778878888788bb7b7bbbb7bbbbbbaaaaaaaa8aaa8aaabbbabbba000000000000000000000000
-c7ccc7cc7c7cc7cce7e7ee7eeee7eeee67c8c8c8c8c8c8c88788878878888788bb7bb7bbb7bbbbbbaa8a8aaa888a8aaaaaaaaaaa000000000000000000000000
-c7ccc77c7c7cc7cce777e777e777eeee678c8c8c8c8c8c8c8777778877777788bb7bbb7bb77777bbaaa8aaaaaa8a8aaabaaabaaa000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88888888888888888bbbbbbbbbbbbbbbbaaa8aaaa888a8888bbbabbba000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee678c8c8c8c8c8c8c8888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee67c8c8c8c8c8c8c88777877878787778b7777b777b7bb7bb000000000000000000000000000000000000000000000000
-c7c7c777c777c777e77e777e777e777e678c8c8c8c8c8c8c8787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
-c7c7c7c7c7c7c7c7e7ee7e7e7e7e7e7e67c8c8c8c8c8c8c88787877878788788b7777b7b7b7bb7bb000000000000000000000000000000000000000000000000
-c777c777c7c7c7c7e7ee777e777e7e7e678c8c8c8c8c8c8c8787878887888788b7b7bb7b7b7bb7bb000000000000000000000000000000000000000000000000
-c7c7c7c7c7c7c7c7e7ee7e7e77ee7e7e67c8c8c8c8c8c8c88787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
-c7c7c7c7c7c7c777e77e7e7e7e7e777e67777777777777778787877878788788b7bb7b777b77b77b000000000000000000000000000000000000000000000000
-cccccccccccccccceeeeeeeeeeeeeeee66666666666666668888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb77777ccd77777ee877777766
+bbb88bbbb88bb88bbb8888bbbbbbb88bb8bb88bbbb8888bbbb8888bbb888888bbb8888bbb888888bbbbb88bbb888888bbb8888bb7777777c7777777e77777776
+bb8888bbb88b88bbb88bb88bbbbbb88bb8b8bb8bb88bb88bb88bb88bbbbbb88bb88bbbbbb88bbbbbbbb888bbbbbb88bbb88bb88b7777777c7777777e77777777
+b88bb88bb8888bbbb88bb88bbbbbb88bb8b8bb8bbb88888bbb8888bbbbbb88bbb88888bbb88888bbbb8888bbbbb88bbbbbbb88bb7777777c7777777e77777777
+b88bb88bb8888bbbb88bb88bbbbbb88bb8b8bb8bbbbbb88bb88bb88bbbb88bbbb88bb88bbbbbb88bb88b88bbbbbb88bbbbb88bbb7777777c7777777e77777777
+b888888bb88b88bbb88b88bbb88bb88bb8b8bb8bbbbb88bbb88bb88bbb88bbbbb88bb88bb88bb88bb888888bb88bb88bbb88bbbb777777777777777777777777
+b88bb88bb88bb88bbb88b88bbb8888bbb8bb88bbbb888bbbbb8888bbbb88bbbbbb8888bbbb8888bbbbbb88bbbb8888bbb888888b777777777777777777777777
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb777777777777777777777777
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000000000000000000000000000777777777777777777777777
+bbbb8bbbbbb888bbbbb8b8bbbbbb8bbb000000000000000000000000000000000000000000000000000000000000000000000000777777777777777777777777
+bbb888bbbbb888bbbb88888bbbb888bb000000000000000000000000000000000000000000000000000000000000000000000000c7777777e777777777777777
+bb88888bbb88b88bbb88888bbb88888b000000000000000000000000000000000000000000000000000000000000000000000000c7777777e777777777777777
+bb88888bbb88b88bbbb888bbbbb888bb000000000000000000000000000000000000000000000000000000000000000000000000c7777777e777777777777777
+bbbb8bbbbbbb8bbbbbbb8bbbbbbb8bbb000000000000000000000000000000000000000000000000000000000000000000000000c7777777e777777767777777
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0000000000000000000000000000000000000000000000000000000000000000000000001cc777778ee7777766777777
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbb
+bb1bbbbbb2b2bbbb88888bbb00000000000000000000000000000000000000000000000000000000000000000000000077777766aaaaa777666667778c8c8c8c
+b1c1bbbb28282bbb87878bbb00000000000000000000000000000000000000000000000000000000000000000000000077777776aaaaaaa766666667c8c8c8c8
+1ccc1bbbb282bbbb88788bbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaa7666666678c8c8c8c
+b1c1bbbb28282bbb87878bbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
+bb1bbbbbb2b2bbbb88888bbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
+bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
+bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
+bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077760057aaaaaaaa66666666c8c8c8c8
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077600506aaaaaaaa666666668c8c8c8c
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077650056aaaaaaaa66666666c8c8c8c8
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000776050069aaaaaaa566666668c8c8c8c
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000677500679aaaaaaa56666666c8c8c8c8
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000066777777999aaaaa555666668c8c8c8c
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb8aaa8a8a8a8a8888bbbabbba000000000000000000000000
+cccccccccccccccce777e777e777eeee00000000000000008887778877777788bb77777bb77777bb888a8a8a888a8aaabaaabaaa000000000000000000000000
+c777c7cc777c7c7ce7e7ee7ee7eeeeee00000000000000008878888878888788bb7bbb7bb7bbbbbb8a8a8a8aaaaa8aaabbbabbaa000000000000000000000000
+c7c7c7cc7c7c7c7ce7e7ee7ee777eeee00000000000000008788888878888788bb77777bb777bbbb888a888a888a88aaaababaaa000000000000000000000000
+c777c7cc777c7c7ce7e7ee7eeee7e77e00000000000000008788778878888788bb7b7bbbb7bbbbbbaaaaaaaa8aaa8aaabbbabbba000000000000000000000000
+c7ccc7cc7c7cc7cce7e7ee7eeee7eeee00000000000000008788878878888788bb7bb7bbb7bbbbbbaa8a8aaa888a8aaaaaaaaaaa000000000000000000000000
+c7ccc77c7c7cc7cce777e777e777eeee00000000000000008777778877777788bb7bbb7bb77777bbaaa8aaaaaa8a8aaabaaabaaa000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbbaaa8aaaa888a8888bbbabbba000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee00000000000000008777877878787778b7777b777b7bb7bb000000000000000000000000000000000000000000000000
+c7c7c777c777c777e77e777e777e777e00000000000000008787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
+c7c7c7c7c7c7c7c7e7ee7e7e7e7e7e7e00000000000000008787877878788788b7777b7b7b7bb7bb000000000000000000000000000000000000000000000000
+c777c777c7c7c7c7e7ee777e777e7e7e00000000000000008787878887888788b7b7bb7b7b7bb7bb000000000000000000000000000000000000000000000000
+c7c7c7c7c7c7c7c7e7ee7e7e77ee7e7e00000000000000008787878878788788b7bb7b7b7b7bb7bb000000000000000000000000000000000000000000000000
+c7c7c7c7c7c7c777e77e7e7e7e7e777e00000000000000008787877878788788b7bb7b777b77b77b000000000000000000000000000000000000000000000000
+cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1926,9 +2027,9 @@ __sfx__
 000100000000026150221501d1501915015150111500e1500b15008150051500315001150001500c15016150121501215012150131501c1501f15022150221500000000000000000000000000000000000000000
 00080000000002505025050250502e0502e0502e0502e05025050250502505029050290502905029050290502905029050290503800038000380003800038000380003800038000380003e0003e0003f00000000
 00060000000000f1500f1500f1500f1500f1500815008150081500815008150081500310003100080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000100001c0503055020550100501c5502555015550100501d5500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300001055010550235502355023530235100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000500002135021310393503931000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
