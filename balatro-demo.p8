@@ -31,19 +31,8 @@ ranks = {
 	{rank = '3', base_chips = 3},
 	{rank = '2', base_chips = 2},
 }	
-hand_types = {
-	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
-	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
-	["Four of a Kind"] = {base_chips = 60, base_mult = 7, level = 1},
-	["Full House"] = {base_chips = 40, base_mult = 4, level = 1},
-	["Flush"] = {base_chips = 35, base_mult = 4, level = 1},
-	["Straight"] = {base_chips = 30, base_mult = 4, level = 1},
-	["Three of a Kind"] = {base_chips = 30, base_mult = 3, level = 1},
-	["Two Pair"] = {base_chips = 20, base_mult = 2, level = 1},
-	["Pair"] = {base_chips = 10, base_mult = 2, level = 1},
-	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
-}
-hand_types_copy = {}
+hand_type_obj = {}
+
 special_cards = {
 	Jokers = {
 		{
@@ -169,7 +158,7 @@ special_cards = {
 			name = "Level Up Royal Flush",
 			price = 5,
 			effect = function()
-				level_up_hand_type("Royal Flush", 5, 50)
+				hand_types["Royal Flush"]:level_up(5, 50)
 			end,
 			sprite_index = 153,
 			description = "levels up the royal flush.\n+ 5 mult and + 50 chips",
@@ -179,7 +168,7 @@ special_cards = {
 			name = "Neptune",
 			price = 5,
 			effect = function()
-				level_up_hand_type("Straight Flush", 4, 40)
+				hand_types["Straight Flush"]:level_up(4, 40)
 			end,
 			sprite_index = 152,
 			description = "levels up the straight flush.\n+ 4 mult and + 40 chips",
@@ -189,7 +178,7 @@ special_cards = {
 			name = "Mars",
 			price = 4,
 			effect = function()
-				level_up_hand_type("Four of a Kind", 3, 30)
+				hand_types["Four of a Kind"]:level_up(3, 30)
 			end,
 			sprite_index = 151,
 			description = "levels up the Four of a Kind.\n+ 3 mult and + 30 chips",
@@ -199,7 +188,7 @@ special_cards = {
 			name = "earth",
 			price = 3,
 			effect = function()
-				level_up_hand_type("Full House", 2, 25)
+				hand_types["Full House"]:level_up(2, 25)
 			end,
 			sprite_index = 150,
 			description = "levels up the full house.\n+ 2 mult and + 25 chips",
@@ -209,7 +198,7 @@ special_cards = {
 			name = "jupiter",
 			price = 3,
 			effect = function()
-				level_up_hand_type("Flush", 2, 15)
+				hand_types["Flush"]:level_up(2, 15)
 			end,
 			sprite_index = 149,
 			description = "levels up the Flush.\n+ 2 mult and + 15 chips",
@@ -219,7 +208,7 @@ special_cards = {
 			name = "saturn",
 			price = 3,
 			effect = function()
-				level_up_hand_type("Straight", 3, 30)
+				hand_types["Straight"]:level_up(3, 30)
 			end,
 			sprite_index = 148,
 			description = "levels up the straight.\n+ 3 mult and + 30 chips",
@@ -229,7 +218,7 @@ special_cards = {
 			name = "venus",
 			price = 2,
 			effect = function()
-				level_up_hand_type("Three of a Kind", 2, 20)
+				hand_types["Three of a Kind"]:level_up(2, 20)
 			end,
 			sprite_index = 147,
 			description = "levels up the three of a kind.\n+ 2 mult and + 20 chips",
@@ -239,7 +228,7 @@ special_cards = {
 			name = "uranus",
 			price = 2,
 			effect = function()
-				level_up_hand_type("Two Pair", 1, 20)
+				hand_types["Two Pair"]:level_up(1, 20)
 			end,
 			sprite_index = 146,
 			description = "levels up the two pair\n+ 1 mult and + 20 chips",
@@ -249,7 +238,7 @@ special_cards = {
 			name = "mercury",
 			price = 1,
 			effect = function()
-				level_up_hand_type("Pair", 1, 15)
+				hand_types["Pair"]:level_up(1, 15)
 			end,
 			sprite_index = 145,
 			description = "levels up the pair.\n+ 1 mult and + 15 chips",
@@ -259,7 +248,7 @@ special_cards = {
 			name = "pluto",
 			price = 1,
 			effect = function()
-				level_up_hand_type("High Card", 1, 10)
+				hand_types["High Card"]:level_up(1, 10)
 			end,
 			sprite_index = 144,
 			description = "levels up the high card.\n+ 1 mult and + 10 chips",
@@ -606,7 +595,7 @@ function _init()
     poke(0x5F2D, 0x7)
 	poke(0x5f2d, 0x3) -- mouse stuff?
 	build_sprite_index_lookup_table()
-	make_hand_types_copy()
+	init_hand_types()
 	add_resettable_params_to_special_cards()
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
@@ -723,12 +712,12 @@ function update_selected_cards()
 	end
 	scored_cards = {}
 	local hand_type = check_hand_type()
-	if hand_type ~= "None" then
-		hand_type_text = hand_type
+	if hand_type != nil then
+		hand_type_text = hand_type.name
 		chips = bigscore:new(0)
 		mult = bigscore:new(0)
-		chips = chips + hand_types[hand_type].base_chips
-		mult = mult + hand_types[hand_type].base_mult
+		chips += hand_type.base_chips
+		mult += hand_type.base_mult
 	end
 end
 
@@ -742,31 +731,58 @@ function deselect_all_selected_cards()
 	end
 end
 
-function check_hand_type()
-	if is_royal_flush() then
-		return "Royal Flush"	
-	elseif is_straight_flush() then
-		return "Straight Flush"
-	elseif is_four_of_a_kind() then
-		return "Four of a Kind"
-	elseif is_full_house() then
-		return "Full House"
-	elseif is_flush() then
-		return "Flush"
-	elseif is_straight() then
-		return "Straight"
-	elseif is_three_of_a_kind() then
-		return "Three of a Kind"
-	elseif is_two_pair() then
-		return "Two Pair"
-	elseif is_pair() then
-		return "Pair"	
-	elseif is_high_card() then
-		return "High Card"
-	else
-		hand_type_text = ""
-		return "None"
+function hand_type_obj:new(name,base_chips,base_mult,check_func)
+	print('name:'..name)
+	print('chips:'..base_chips)
+	print(base_mult)
+	print(check_func)
+	assert(type(check_func) == 'function')
+	local obj = {
+		name=name,
+		base_chips=base_chips,
+		base_mult=base_mult,
+		check_func = check_func,
+		level=1
+	}
+	return setmetatable(obj, {
+		__index=self,
+	})
+end
+function hand_type_obj:level_up(mult_amount, chip_amount)
+	self.base_mult += mult_amount 
+	self.base_chips += chip_amount 
+	self.level += 1
+end
+
+function init_hand_types()
+	hand_types = {}
+	hand_type_array = {}
+	for ht in all({
+		hand_type_obj:new("Straight Flush", 100, 8, is_straight_flush),
+		hand_type_obj:new("Four of a Kind", 60, 7, is_four_of_a_kind),
+		hand_type_obj:new("Full House", 40, 4, is_full_house),
+		hand_type_obj:new("Flush", 35, 4, is_flush),
+		hand_type_obj:new("Straight", 30, 4, is_straight),
+		hand_type_obj:new("Three of a Kind", 30, 3,is_three_of_a_kind),
+		hand_type_obj:new("Two Pair", 20, 2,is_two_pair),
+		hand_type_obj:new("Pair", 10, 2, is_pair),
+		hand_type_obj:new("High Card", 5, 1, function() return true end, nil)
+	}) do
+		-- array follows order of precedence
+		add(hand_type_array,ht)
+		-- legacy map table
+		hand_types[ht.name] = ht
 	end
+end
+
+function check_hand_type()
+	for i, ht in pairs(hand_type_array) do
+		if ht:check_func() then
+			return ht
+		end
+	end
+	hand_type_text = ""
+	return nil
 end
 
 function update_round_and_score() 
@@ -814,18 +830,12 @@ function lose_state()
 	scored_cards = {}
 	shop_options = {}
 	hand = {}
-	hand_types = hand_types_copy
+	init_hand_types()
 	init_draw = true
 	deal_hand(shuffled_deck, hand_size)
 	money = 4
 end
 
-function level_up_hand_type(hand_type_name, mult_amount, chip_amount)
-	local ht = hand_types[hand_type_name]
-	ht.base_mult = ht.base_mult + mult_amount 
-	ht.base_chips = ht.base_chips + chip_amount 
-	ht.level = ht.level + 1 
-end
 
 -- Money
 function cash_out_interest()
@@ -950,15 +960,6 @@ function add_resettable_params_to_special_cards()
 	end
 end
 
-function make_hand_types_copy()
-	for k, v in pairs(hand_types) do
-	    local new_table = {}
-	    for sub_k, sub_v in pairs(v) do
-	        new_table[sub_k] = sub_v
-	    end
-	    hand_types_copy[k] = new_table
-	end    
-end
 
 function add_cards_to_shop()
 	random_joker = find_random_unique_shop_option("Jokers", joker_cards) -- don't repeat cards
@@ -1459,7 +1460,7 @@ function exit_view_deck_button_clicked()
 end
 
 -- Hand Detection
-function is_royal_flush()
+function is_royal_flush(self)
 	if contains_royal(selected_cards) and contains_flush(selected_cards) then
 		add_all_cards_to_score(selected_cards)
 		return true
@@ -1467,7 +1468,7 @@ function is_royal_flush()
 	return false
 end
 
-function is_straight_flush()
+function is_straight_flush(self)
 	if contains_flush(selected_cards) and contains_straight(selected_cards) then	
 		add_all_cards_to_score(selected_cards)
 		return true
@@ -1475,7 +1476,7 @@ function is_straight_flush()
 	return false
 end
 
-function is_four_of_a_kind()
+function is_four_of_a_kind(self)
 	if contains_four_of_a_kind(selected_cards) then
 		sort_by_rank_decreasing(selected_cards)
 		for x=1, #selected_cards - 3 do
@@ -1491,7 +1492,7 @@ function is_four_of_a_kind()
 	return false
 end
 
-function is_full_house()
+function is_full_house(self)
 	if contains_pair(selected_cards) and contains_three_of_a_kind(selected_cards) then
 		add_all_cards_to_score(selected_cards)
 		return true
@@ -1499,7 +1500,7 @@ function is_full_house()
 	return false
 end
 
-function is_flush()
+function is_flush(self)
 	if contains_flush(selected_cards) then	
 		add_all_cards_to_score(selected_cards)
 		return true
@@ -1507,7 +1508,7 @@ function is_flush()
 	return false
 end
 
-function is_straight()
+function is_straight(self)
 	if contains_straight(selected_cards) then	
 		add_all_cards_to_score(selected_cards)
 		return true
@@ -1515,7 +1516,7 @@ function is_straight()
 	return false
 end
 
-function is_three_of_a_kind()
+function is_three_of_a_kind(self)
 	if contains_three_of_a_kind(selected_cards) then
 		sort_by_rank_decreasing(selected_cards)
 		for x=1, #selected_cards - 2 do
@@ -1530,7 +1531,7 @@ function is_three_of_a_kind()
 	return false
 end
 
-function is_two_pair()
+function is_two_pair(self)
 	if contains_two_pair(selected_cards) then
 		sort_by_rank_decreasing(selected_cards)
 		local times = 0
@@ -1549,7 +1550,7 @@ function is_two_pair()
 	return false
 end
 
-function is_pair()
+function is_pair(self)
 	if contains_pair(selected_cards) then
 		sort_by_rank_decreasing(selected_cards)
 		for x=1, #selected_cards - 1 do
@@ -1563,7 +1564,7 @@ function is_pair()
 	return false
 end
 
-function is_high_card()
+function is_high_card(self)
 	if #selected_cards > 0 then
 		sort_by_rank_decreasing(selected_cards)
 		add(scored_cards, selected_cards[1])
