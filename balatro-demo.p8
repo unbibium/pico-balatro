@@ -835,7 +835,9 @@ function _draw()
 	if in_shop and not is_viewing_deck then
 		draw_score()
 		draw_shop()
-		draw_go_next_and_reroll_button()
+		if costatus(animation)=='dead' then
+			draw_go_next_and_reroll_button()
+		end
 		draw_shop_options()
 		draw_deck()
 		-- always draw
@@ -845,8 +847,10 @@ function _draw()
 		draw_joker_cards()
 		draw_tarot_cards()
 	elseif not in_shop and not is_viewing_deck then
-    	draw_hand()
-		draw_play_discard_buttons()
+		draw_hand()
+		if costatus(animation)=='dead' then
+			draw_play_discard_buttons()
+		end
 		draw_chips_and_mult()
 		draw_score()
 		draw_hand_type(hand_type_text)
