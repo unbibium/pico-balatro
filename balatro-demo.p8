@@ -58,6 +58,13 @@ function pause(frames)
 		yield()
 	end
 end
+function add_money(i, card)
+	if(i == 0) return pause(1)
+	money += i
+	sfx(sfx_add_money)
+	add_sparkle(35,card)
+	pause(7)
+end
 function multiply_mult(i, card)
 	if(i == 0) return pause(1)
 	mult *= i
@@ -161,14 +168,21 @@ function item_obj:draw_at(x,y)
 	spr(self.sprite_index, x, y)
 end
 
+-- utility functions
+function do_nothing()
+end
+
 -- playing cards
 card_obj=item_obj:new({
 	type = "card",
+	bgtile = 15,
 	height = 15, -- scant 2 tiles
 	effect_chips = 0,
 	mult = 0,
 	pos_x = 0,
-	pos_y = 0
+	pos_y = 0,
+	when_held_in_hand = do_nothing,
+	when_held_at_end = do_nothing
 })
 function card_obj:reset()
 	self.selected=false
@@ -179,14 +193,8 @@ function card_obj:draw_at(x,y)
 	pal()
 	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
 	palt(11,true)
-	local bgtile=15
-	if self.effect_chips == 30 then
-		bgtile=13
-	elseif self.mult == 4 then
-		bgtile=14
-	end
 	pal(8,suit_colors[self.suit])
-	spr(bgtile,x,y,1,2)
+	spr(self.bgtile,x,y,1,2)
 	-- overlay rank
 	spr(self.sprite_index, x, y)
 	-- overlay suit
@@ -196,6 +204,8 @@ end
 
 -- special cards
 special_obj=item_obj:new({})
+-- description shown when mouse
+-- is over the object
 function special_obj:describe()
 	-- window appears at bottom
 	rectfill(0,98,127,127,self.bg)
@@ -234,6 +244,37 @@ tarot_obj=special_obj:new({
 planet_obj=special_obj:new({
 			type = "Planet", bg=12, fg=7
 })
+
+-- common function to add an effect
+-- to cards.  pass in the maximum
+-- number of cards and a function
+-- that modifies one individual card.
+function card_enhancement(qty,body)
+	return function(self)
+		-- consider checking for 0 if
+		-- it's no longer handled elsewhere
+		if #selected_cards > qty then
+			sfx(sfx_error_message)
+			error_message = "too many cards selected"
+			return
+		end
+		for card in all(selected_cards) do
+			card.selected = false
+			card.pos_y += 10
+			body(card, self)
+		end
+		card_selected_count = 0
+		del(tarot_cards, self)
+		init_draw = true
+	end
+end
+
+-- all change-suit tarots are the same
+function suit_change(new_suit)
+	return card_enhancement(3, function(card)
+			card.suit = new_suit 
+	end)
+end
 
 -- shop inventory
 special_cards = {
@@ -439,121 +480,105 @@ special_cards = {
 	},
 	Tarots = {
 		tarot_obj:new({
+			name = "the devil",
+			price = 0,
+			effect = card_enhancement(1,function(card,self)
+				card.bgtile = 45
+				card.when_held_in_hand = do_nothing
+				card.when_held_at_end = function(c)
+					add_money(3,c)
+				end
+			end),
+			sprite_index = 169,
+			description = "converts 1 card into a\ngold card, which grants $3 if\ncard is in hand at end of round",
+		}),
+		tarot_obj:new({
+			name = "the chariot",
+			price = 0,
+			effect = card_enhancement(1,function(card,self)
+				card.bgtile = 46
+				card.when_held_in_hand = function(c)
+					multiply_mult(1.5,c)
+				end
+				card.when_held_at_end = do_nothing
+			end),
+			sprite_index = 170,
+			description = "converts 1 card into a\nsteel card, which grants x1.5 if\ncard is in left in hand",
+		}),
+		tarot_obj:new({
 			name = "strength",
 			price = 2,
-			effect = function(tarot)
-				if #selected_cards <= 2 then
-					for card in all(selected_cards) do
-						local higher_rank = find_1_rank_higher(card.rank)
-						card.sprite_index = sprite_index_lookup_table[higher_rank]
-						card.rank = higher_rank 
-						card.order = find_rank_order(higher_rank)
-						card.chips = find_rank_base_chips(higher_rank)
-						card.selected = false
-						card.pos_y = card.pos_y + 10
-					end
-					card_selected_count = 0
-					del(tarot_cards, tarot)
-					init_draw = true
-					sort_by_rank_decreasing(hand)
-				else
-					sfx(sfx_error_message)
-					error_message = "Can only use this\n tarot card with 2 cards"
-				end
-			end,
+			effect = card_enhancement(2,function(card,self)
+				local higher_rank = find_1_rank_higher(card.rank)
+				card.sprite_index = sprite_index_lookup_table[higher_rank]
+				card.rank = higher_rank 
+				card.order = find_rank_order(higher_rank)
+				card.chips = find_rank_base_chips(higher_rank)
+			end),
 			sprite_index = 160,
 			description = "increases the rank of two\nselected cards by 1",
 		}),
 		tarot_obj:new({
 			name = "the sun",
 			price = 2,
-			effect = function(tarot)
-				change_to_suit("H", tarot)	
-			end,
+			effect = suit_change("H"),
 			sprite_index = 161,
 			description = "changes the suit of 3 selected \ncards to hearts",
 		}),
 		tarot_obj:new({
 			name = "the star",
 			price = 2,
-			effect = function(tarot)
-				change_to_suit("D", tarot)	
-			end,
+			effect = suit_change("D"),
 			sprite_index = 162,
 			description = "changes the suit of 3 selected \ncards to diamonds",
 		}),
 		tarot_obj:new({
 			name = "the moon",
 			price = 2,
-			effect = function(tarot)
-				change_to_suit("C", tarot)	
-			end,
+			effect = suit_change("C"),
 			sprite_index = 163,
 			description = "changes the suit of 3 selected \ncards to clubs",
 		}),
 		tarot_obj:new({
 			name = "the world",
 			price = 2,
-			effect = function(tarot)
-				change_to_suit("S", tarot)	
-			end,
+			effect = suit_change("S"),
 			sprite_index = 164,
 			description = "changes the suit of 3 selected \ncards to spades",
 		}),
 		tarot_obj:new({
 			name = "the empress",
 			price = 2,
-			effect = function(tarot)
-				if #selected_cards <= 2 then
-					for card in all(selected_cards) do
-						card.mult = 4
-						card.selected = false
-						card.pos_y = card.pos_y + 10
-						if card.effect_chips > 0 then
-							card.effect_chips = 0
-						end
-					end
-					card_selected_count = 0
-					del(tarot_cards, tarot)
-				else
-					sfx(sfx_error_message)
-					error_message = "Can only use this\n tarot card with 2 cards"
-				end
-			end,
+			effect = card_enhancement(2,function(card,self)
+				card.bgtile = 14
+				card.effect_chips = 0 
+				card.mult = 4
+				card.when_held_in_hand = do_nothing
+			end),
 			sprite_index = 165,
-			description = "gives two cards the ability\nto add 4 mult when scored",
+			description = "causes up to two cards to add\n4 mult when scored",
 		}),
 		tarot_obj:new({
 			name = "the hierophant",
 			price = 2,
-			effect = function(tarot)
-				if #selected_cards <= 2 then
-					for card in all(selected_cards) do
-						card.effect_chips = 30 
-						card.selected = false
-						card.pos_y = card.pos_y + 10
-						if card.mult > 0 then
-							card.mult = 0
-						end
-					end
-					card_selected_count = 0
-					del(tarot_cards, tarot)
-				else
-					sfx(sfx_error_message)
-					error_message = "Can only use this\n tarot card with 2 cards"
-				end
-			end,
+			effect = card_enhancement(2,function(card,self)
+				card.bgtile = 13
+				card.effect_chips = 30 
+				card.mult = 0
+				card.when_held_in_hand = do_nothing
+				card.when_held_at_end = do_nothing
+			end),
 			sprite_index = 166,
-			description = "gives two cards the ability\nto add 30 chips when scored",
+			description = "causes up to two cards to add\n30 chips when scored",
 		}),
 		tarot_obj:new({
 			name = "the hermit",
 			price = 4,
-			effect = function()
+			effect = function(tarot)
 				if money >= 20 then
-					money = money + 20
+					add_money(20,tarot)
 				else
-					money = money * 2
+					add_money(money,tarot)
 				end
 			end,
 			sprite_index = 167,
@@ -737,6 +762,7 @@ sfx_error_message = 10
 sfx_add_chips=11
 sfx_add_mult=12
 sfx_multiply_mult=13
+sfx_add_money=14
 
 -- Game State
 hand = {}
@@ -875,6 +901,7 @@ end
 -- run as a coroutine so
 -- yield commands can be used
 function score_hand()
+	pause(5) -- wait for sfx
 	-- Score cards 
 	for card in all(scored_cards) do
 		add_chips( card.chips + card.effect_chips, card )
@@ -885,12 +912,22 @@ function score_hand()
 	chips = bigscore:new(0)
 	mult = bigscore:new(0)
 	hand_type_text = ""
+	score_held_cards()
 	finish_scoring_hand()
 end
 
 function score_jokers()
 	for joker in all(joker_cards) do
 		joker:effect()
+	end
+end
+
+-- after scoring played cards,
+-- do effects for cards held in
+-- hand (steel card, etc)
+function score_held_cards()
+	for card in all(hand) do
+		card:when_held_in_hand()
 	end
 end
 
@@ -956,6 +993,10 @@ function update_round_and_score()
 end
 
 function win_state()
+	for card in all(hand) do
+		card:when_held_at_end()
+		pause(1)
+	end
 	sfx(sfx_win_state)
 	error_message = ""
 	update_round_and_score()	
@@ -1011,10 +1052,10 @@ end
 -- Money
 function cash_out_interest()
 	if money >= 25 then
-		money = money + 5
+		add_money(5,nil)
 	elseif money >= 5 then
 		local interest = flr(money / 5)		
-		money = money + interest
+		add_money(interest,nil)
 	end
 end
 
@@ -1459,11 +1500,16 @@ function buy_button_clicked()
 
 			-- Tarot 
 			if special_card.type == "Tarot" and #tarot_cards < tarot_limit then
-				money = money - special_card.price
+				money -= special_card.price
 				sfx(sfx_buy_btn_clicked)
 				if special_card.name == "the hermit" then
-					special_card.effect()	
-					del(shop_options, special_card)
+					animation=cocreate(function()
+						pause(9) -- wait for sfx
+						special_card:effect()	
+						pause(1) -- one more frame
+						del(shop_options, special_card)
+					end)
+				
 				else
 					add(tarot_cards, special_card)
 					del(shop_options, special_card)
@@ -1860,6 +1906,7 @@ function get_special_card_by_name(name, type)
 	end
 end
 
+
 function change_to_suit(suit, tarot)
 	if #selected_cards <= 3 then
 		for card in all(selected_cards) do
@@ -1927,14 +1974,14 @@ bb88888bbb88b88bbbb888bbbbb888bb000000000000000000000000000000000000000000000000
 bbbb8bbbbbbb8bbbbbbb8bbbbbbb8bbb000000000000000000000000000000000000000000000000000000000000000000000000c7777777e777777767777777
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0000000000000000000000000000000000000000000000000000000000000000000000001cc777778ee7777766777777
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb000000000000000000000000000000000000000000000000000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbb
-bb1bbbbbb2b2bbbb88888bbb00000000000000000000000000000000000000000000000000000000000000000000000077777766aaaaa777666667778c8c8c8c
-b1c1bbbb28282bbb87878bbb00000000000000000000000000000000000000000000000000000000000000000000000077777776aaaaaaa766666667c8c8c8c8
-1ccc1bbbb282bbbb88788bbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaa7666666678c8c8c8c
-b1c1bbbb28282bbb87878bbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
-bb1bbbbbb2b2bbbb88888bbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
-bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
-bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
-bbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
+bb1bbbbbb2b2bbbb88888bbbb060bbbb000000000000000000000000000000000000000000000000000000000000000077777766aaaaa777666667778c8c8c8c
+b1c1bbbb28282bbb87878bbbb0660bbb000000000000000000000000000000000000000000000000000000000000000077777776aaaaaaa766666667c8c8c8c8
+1ccc1bbbb282bbbb88788bbb0660bbbb000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaa7666666678c8c8c8c
+b1c1bbbb28282bbb87878bbb06660bbb000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
+bb1bbbbbb2b2bbbb88888bbbb0660bbb000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
+bbbbbbbbbbbbbbbbbbbbbbbb0660bbbb000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
+bbbbbbbbbbbbbbbbbbbbbbbbb060bbbb000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
+bbbbbbbbbbbbbbbbbbbbbbbbbb0bbbbb000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa66666666c8c8c8c8
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077777777aaaaaaaa666666668c8c8c8c
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077760057aaaaaaaa66666666c8c8c8c8
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077600506aaaaaaaa666666668c8c8c8c
@@ -1991,14 +2038,14 @@ ccc7c7ccc7c7c7c7c777c777cc77777cccc777778c88c8cccc77777cc777c777ccc888887c788888
 ccc777ccc777c777c7c7c7c7cccc7c7ccc77777788888888cc7c7c7cc7c7c7c7cc888888cc888888000000000000000000000000000000000000000000000000
 ccccccccccccccccc7c7c7c7cccc777cc7777777ccccc8c8cc7c7c7cc777c777c8888888c8888888000000000000000000000000000000000000000000000000
 ccccccccccccccccc777c777cccccccc77777777ccccc888cc77777ccccccccc8888888888888888000000000000000000000000000000000000000000000000
-f777f7778888888f9999999fcccccccfdddddddfffffffffffffffffafafaaaf777f777f00000000000000000000000000000000000000000000000000000000
-f7f7f7f78f8f8f8f9f9f9f9fcfcfcfcfdfdfdfdfff8888ffffccccfffaffffaf7f7f7f7f00000000000000000000000000000000000000000000000000000000
-f7f7f7f78888888f9999999fcccccccfdddddddfff8ff8ffffcffcffafafaaff777f777f00000000000000000000000000000000000000000000000000000000
-f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffffffafffffffffff00000000000000000000000000000000000000000000000000000000
-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555ff00000000000000000000000000000000000000000000000000000000
-f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddfff00000000000000000000000000000000000000000000000000000000
-f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddfff00000000000000000000000000000000000000000000000000000000
-f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfff00000000000000000000000000000000000000000000000000000000
+f777f7778888888f9999999fcccccccfdddddddfffffffffffffffffafafaaaf777f777fffffffffffffffff0000000000000000000000000000000000000000
+f7f7f7f78f8f8f8f9f9f9f9fcfcfcfcfdfdfdfdfff8888ffffccccfffaffffaf7f7f7f7ffaaaa77ff666677f0000000000000000000000000000000000000000
+f7f7f7f78888888f9999999fcccccccfdddddddfff8ff8ffffcffcffafafaaff777f777ffaaaaa7ff666667f0000000000000000000000000000000000000000
+f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffffffaffffffffffffaaaaaaff666666f0000000000000000000000000000000000000000
+ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555fffaaaaaaff666666f0000000000000000000000000000000000000000
+f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddffff9aaaaaff566666f0000000000000000000000000000000000000000
+f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddffff99aaaaff556666f0000000000000000000000000000000000000000
+f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfffffffffffffffffff0000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -2030,7 +2077,7 @@ __sfx__
 000100001c0503055020550100501c5502555015550100501d5500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000300001055010550235502355023530235100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000500002135021310393503931000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00020000086700a6300d6601063012650156101764017610146001560000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
