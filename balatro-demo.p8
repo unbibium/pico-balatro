@@ -13,7 +13,6 @@ draw_special_cards_gap = 10
 init_draw = true 
 sparkles = {}
 max_selected = 5
-card_selected_count = 0
 suits = {'H', 'D', 'C', 'S'}
 sprite_index_lookup_table = {}
 suit_colors = {S=5,C=12,H=8,D=9}
@@ -33,6 +32,11 @@ ranks = {
 	{rank = '3', base_chips = 3},
 	{rank = '2', base_chips = 2},
 }	
+
+-- deck sprite is used by card obj
+deck_sprite_index = 47
+deck_sprite_pos_x = 112
+deck_sprite_pos_y = 100
 
 -- object references
 joker_cards = {}
@@ -115,8 +119,8 @@ item_obj={
 	height=card_height,
 	-- resettable params
 	selected=false,
-	pos_x=0,
-	pos_y=0,
+	pos_x=deck_sprite_pos_x,
+	pos_y=deck_sprite_pos_y,
 	from_x=nil,
 	from_y=nil,
 	frames=0
@@ -126,6 +130,9 @@ function item_obj:new(obj)
 		__index=self
 	})
 end
+
+-- place(x,y): snap card to location
+-- place(x,y,frames): glide card to location over number of frames
 function item_obj:place(x,y,frames) 
 	if max(0,frames) > 0 then
 		self.from_x = self.pos_x
@@ -135,13 +142,15 @@ function item_obj:place(x,y,frames)
 	self.pos_x=x
 	self.pos_y=y
 end
-function item_obj:reset()
+-- move to deck with animation
+function item_obj:to_deck()
 	self.selected=false
-	self.pos_x=deck_sprite_pos_x
-	self.pos_y=deck_sprite_pos_y
+	del(hand,self)
+ del(selected_cards,self)
+	self:place(deck_sprite_pos_x,deck_sprite_pos_y,10)
 end
 function item_obj:draw()
-	-- animation
+	-- animate item movement
 	if self.frames > 0 then
 		self.frames -= 1
 		if self.frames == 0 then
@@ -167,14 +176,9 @@ card_obj=item_obj:new({
 	height = 15, -- scant 2 tiles
 	effect_chips = 0,
 	mult = 0,
-	pos_x = 0,
-	pos_y = 0
+	pos_x = deck_sprite_pos_x,
+	pos_y = deck_sprite_pos_y 
 })
-function card_obj:reset()
-	self.selected=false
-	self.pos_x=0
-	self.pos_y=0
-end
 function card_obj:draw_at(x,y)
 	pal()
 	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
@@ -192,6 +196,29 @@ function card_obj:draw_at(x,y)
 	-- overlay suit
 	spr(suit_sprites[self.suit],x,y+8)
 	pal()
+end
+
+function card_obj:toggle()
+	if (self.selected) return self:deselect()
+	return self:select()
+end
+
+function card_obj:select()
+	if #selected_cards>max_selected then
+		sfx(sfx_error_message)
+		error_message = "You can only select 5 \ncards at a time"
+		return
+	end
+	error_message = ""
+	self.selected=true
+	self:place(self.pos_x,80,4)
+	add(selected_cards, self)
+end
+
+function card_obj:deselect()
+	self.selected=false
+	self:place(self.pos_x,90,4)
+	del(selected_cards, self)
 end
 
 -- special cards
@@ -449,10 +476,8 @@ special_cards = {
 						card.rank = higher_rank 
 						card.order = find_rank_order(higher_rank)
 						card.chips = find_rank_base_chips(higher_rank)
-						card.selected = false
-						card.pos_y = card.pos_y + 10
+						card:deselect()
 					end
-					card_selected_count = 0
 					del(tarot_cards, tarot)
 					init_draw = true
 					sort_by_rank_decreasing(hand)
@@ -507,13 +532,11 @@ special_cards = {
 				if #selected_cards <= 2 then
 					for card in all(selected_cards) do
 						card.mult = 4
-						card.selected = false
-						card.pos_y = card.pos_y + 10
+						card:deselect()
 						if card.effect_chips > 0 then
 							card.effect_chips = 0
 						end
 					end
-					card_selected_count = 0
 					del(tarot_cards, tarot)
 				else
 					sfx(sfx_error_message)
@@ -530,13 +553,11 @@ special_cards = {
 				if #selected_cards <= 2 then
 					for card in all(selected_cards) do
 						card.effect_chips = 30 
-						card.selected = false
-						card.pos_y = card.pos_y + 10
+						card:deselect()
 						if card.mult > 0 then
 							card.mult = 0
 						end
 					end
-					card_selected_count = 0
 					del(tarot_cards, tarot)
 				else
 					sfx(sfx_error_message)
@@ -568,8 +589,7 @@ special_cards = {
 						del(base_deck, card)
 						del(hand, card)
 					end
-					deal_hand(shuffled_deck, #selected_cards)
-					card_selected_count = 0
+					deal_hand(shuffled_deck)
 					del(tarot_cards, tarot)
 					init_draw = true
 					sort_by_rank_decreasing(hand)
@@ -685,11 +705,6 @@ assert_score( (bigscore:new(300) * 300 * 300), "27000000" )
 assert_score( (bigscore:new(300) * 300 * 300 * 300), "naneinf" )
 assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
 
--- deck sprite stuff
-
-deck_sprite_index = 47
-deck_sprite_pos_x = 112
-deck_sprite_pos_y = 100
 
 -- buttons
 btn_width = 16
@@ -784,7 +799,7 @@ function _init()
 	make_hand_types_copy()
 	base_deck = create_base_deck()
 	shuffled_deck = shuffle_deck(base_deck)
-	deal_hand(shuffled_deck, hand_size)
+	deal_hand(shuffled_deck)
 	sfx(sfx_load_game)
 end
 
@@ -915,8 +930,7 @@ end
 
 function deselect_all_selected_cards()
 	for card in all(selected_cards) do
-		select_hand(card)
-		del(selected_cards, card)
+		card:deselect()
 		chips = bigscore:new(0)
 		mult = bigscore:new(0)
 		hand_type_text = ""
@@ -963,7 +977,6 @@ function win_state()
 	cash_out_money_earned_per_round()
 	cash_out_money_earned_per_hand_remaining()
 	add_cards_to_shop()
-	card_selected_count = 0
 	scored_cards = {}
 	hands = 4
 	discards = 4
@@ -973,31 +986,35 @@ function win_state()
 	scored_cards = {}
 	hand = {}
 	init_draw = true
-	deal_hand(shuffled_deck, hand_size)
+	deal_hand(shuffled_deck)
 end
 
 function lose_state()
-	sfx(sfx_lose_state)
 	base_deck = create_base_deck()
 	clear(tarot_cards)
 	clear(joker_cards)
-	round = 1
-	goal_score = bigscore:new(300)
-	card_selected_count = 0
-	scored_cards = {}
-	hands = 4
-	discards = 4
-	score = bigscore:new(0)
-	reroll_price = 5
 	shuffled_deck = shuffle_deck(base_deck)
 	reset_card_params()
 	selected_cards = {}
 	scored_cards = {}
 	shop_options = {}
 	hand = {}
+	-- end screen
+	error_message="game over"
+	sfx(sfx_lose_state)
+	pause(50)
+	-- start new game
+	error_message=""
+	round = 1
+	goal_score = bigscore:new(300)
+	scored_cards = {}
+	hands = 4
+	discards = 4
+	score = bigscore:new(0)
+	reroll_price = 5
 	hand_types = hand_types_copy
 	init_draw = true
-	deal_hand(shuffled_deck, hand_size)
+	deal_hand(shuffled_deck)
 	money = 4
 end
 
@@ -1076,6 +1093,8 @@ function shuffle_deck(deck)
 end
 
 function deal_hand(shuffled_deck, cards_to_deal)
+	if (cards_to_deal == nil) cards_to_deal=hand_size-#hand
+
 	if #shuffled_deck < cards_to_deal then
 		for card in all(shuffled_deck) do
 			add(hand, card)				
@@ -1092,8 +1111,9 @@ end
 
 function reset_card_params()
 	for card in all(shuffled_deck) do
-		card:reset()
+		card:to_deck()
 	end
+	pause(9)
 end
 
 function build_sprite_index_lookup_table()
@@ -1160,15 +1180,13 @@ function draw_hand()
 	local y = 90 
 	if init_draw then
 		for i=1,#hand do
-			hand[i]:place(x,y)
-			hand[i]:draw()
+			hand[i]:place(x,y,5)
 			x += hand[i].width + draw_hand_gap
 		end
 		init_draw = false
-	else
-		for i=1,#hand do
- 	   		hand[i]:draw()
-		end
+	end
+	for i=1,#hand do
+		hand[i]:draw()
 	end
 end
 
@@ -1194,22 +1212,6 @@ function draw_tooltips(x,y)
 				special_card:describe() return
 			end
 		end
-	end
-end
-
-function select_hand(card)
-	if card.selected == false and card_selected_count < max_selected then 
-		card.selected = true
-		card_selected_count = card_selected_count + 1
-		card:place(card.pos_x,card.pos_y-10,5)
-	elseif card.selected == true then	
-		card.selected = false
-		card_selected_count = card_selected_count - 1
-		card:place(card.pos_x,card.pos_y+10,5)
-		if card_selected_count == 4 then error_message = "" end
-	else
-		sfx(sfx_error_message)
-		error_message = "You can only select 5 \ncards at a time"
 	end
 end
 
@@ -1365,7 +1367,7 @@ function hand_collision()
 	for card in all(hand) do
 		if mouse_sprite_collision(card.pos_x,card.pos_y,card.width,card.height) then
 				sfx(sfx_card_select)
-				select_hand(card)
+				card:toggle()
 				break
 		end
 	end
@@ -1389,12 +1391,10 @@ function finish_scoring_hand()
 			in_shop = true
 		else
 			for card in all(selected_cards) do
-				del(hand, card)	
-				del(selected_cards, card)
+				card:to_deck()
 			end
-			deal_hand(shuffled_deck, card_selected_count)
+			deal_hand(shuffled_deck)
 			init_draw = true
-			card_selected_count = 0
 			scored_cards = {}
 			error_message = ""
 			if hands == 0 then
@@ -1408,12 +1408,10 @@ function discard_button_clicked()
 	if mouse_sprite_collision(btn_discard_hand_pos_x, btn_discard_hand_pos_y, btn_width, btn_height) and #selected_cards > 0 and discards > 0 then
 		sfx(sfx_discard_btn_clicked)
 		for card in all(selected_cards) do
-			del(hand, card)	
-			del(selected_cards, card)
+			card:to_deck(card)
+			deal_hand(shuffled_deck)
 		end
-		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
-		card_selected_count = 0
 		discards = discards - 1
 		error_message = ""
 	end
@@ -1523,7 +1521,6 @@ function view_deck_button_clicked()
 		is_viewing_deck = true
 
 		-- Reset stuff
-		card_selected_count = 0
 		selected_cards = {}
 		for card in all(hand) do
 			card.selected = false
@@ -1863,12 +1860,9 @@ end
 function change_to_suit(suit, tarot)
 	if #selected_cards <= 3 then
 		for card in all(selected_cards) do
-			card.sprite_index = sprite_index_lookup_table[card.rank]
 			card.suit = suit 
-			card.selected = false
-			card.pos_y = card.pos_y + 10
+			card:deselect()
 		end
-		card_selected_count = 0
 		del(tarot_cards, tarot)
 	else
 		sfx(sfx_error_message)
