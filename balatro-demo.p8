@@ -14,15 +14,15 @@ init_draw = true
 sparkles = {}
 max_selected = 5
 card_selected_count = 0
-suits = {'H', 'D', 'C', 'S'}
+suits = {'h', 'd', 'c', 's'}
 sprite_index_lookup_table = {}
-suit_colors = {S=5,C=12,H=8,D=9}
-suit_sprites = {S=16,C=17,H=18,D=19}
+suit_colors = {s=5,c=12,h=8,d=9}
+suit_sprites = {s=16,c=17,h=18,d=19}
 ranks = {
-	{rank = 'A', base_chips = 11},
-	{rank = 'K', base_chips = 10},
-	{rank = 'Q', base_chips = 10},
-	{rank = 'J', base_chips = 10},
+	{rank = 'a', base_chips = 11},
+	{rank = 'k', base_chips = 10},
+	{rank = 'q', base_chips = 10},
+	{rank = 'j', base_chips = 10},
 	{rank = '10', base_chips = 10},
 	{rank = '9', base_chips = 9},
 	{rank = '8', base_chips = 8},
@@ -182,7 +182,9 @@ card_obj=item_obj:new({
 	pos_x = 0,
 	pos_y = 0,
 	when_held_in_hand = do_nothing,
-	when_held_at_end = do_nothing
+	when_held_at_end = do_nothing,
+	effect = do_nothing,
+	card_effect = do_nothing
 })
 function card_obj:reset()
 	self.selected=false
@@ -200,6 +202,16 @@ function card_obj:draw_at(x,y)
 	-- overlay suit
 	spr(suit_sprites[self.suit],x,y+8)
 	pal()
+end
+
+function card_obj:is_face()
+	-- todo: implement pareidolia
+	return contains({'k','j','q'},self.rank)
+end
+
+function card_obj:is_suit(target)
+	-- todo: implement smeared joker
+	return self.suit == target
 end
 
 -- special cards
@@ -235,7 +247,9 @@ end
 
 joker_obj=special_obj:new({
 			type = "Joker",bg=0,fg=7,
-			ref = joker_cards
+			ref = joker_cards,
+			effect=function(self) end,
+			card_effect=function(self,card) end
 })
 tarot_obj=special_obj:new({
 			type = "Tarot", bg=15, fg=1,
@@ -280,13 +294,13 @@ end
 special_cards = {
 	Jokers = {
 		joker_obj:new({
-			name = "Add 4 Mult",
+			name = "joker",
 			price = 2,
 			effect = function(self)
 				add_mult(4, self)
 			end,
-			sprite_index = 128,
-			description = "Adds 4 to your mult",
+			sprite_index = 128, 
+			description = "+4 mult"
 		}),
 		joker_obj:new({
 			name = "Add 8 Mult",
@@ -295,16 +309,20 @@ special_cards = {
 				add_mult(8, self)
 			end,
 			sprite_index = 129, 
-			description = "Adds 8 to your mult",
+			description = "+8 mult"
 		}),
 		joker_obj:new({
-			name = "Add 12 Mult",
-			price = 4,
+			name = "raised fist",
+			price = 3,
 			effect = function(self)
-				add_mult(12, self)
+				min_rank=99
+				for card in all(hand) do
+					if(not card.selected) min_rank=min(min_rank,card.chips)
+				end
+				add_mult(2*min_rank, self)
 			end,
 			sprite_index = 130, 
-			description = "Adds 12 to your mult",
+			description = "adds double the rank of lowest\nranked card held in hand\nto mult"
 		}),
 		joker_obj:new({
 			name = "Add Random Mult",
@@ -343,13 +361,93 @@ special_cards = {
 			description = "Multiplies your mult by 3",
 		}),
 		joker_obj:new({
-			name = "Add 30 Chips",
-			price = 2,
-			effect = function(self)
-				add_chips(30, self)
+			name = "odd todd",
+			price = 4,
+			card_effect = function(self, card)
+				if (contains({'a','3','5','7','9'},card.rank)) then
+					add_chips(31, card)
+				end
 			end,
-			sprite_index = 135, 
-			description = "Adds 30 to your chips",
+			sprite_index = 140, 
+			description = "adds 31 chips for each card with odd rank",
+		}),
+		joker_obj:new({
+			name = "scary face",
+			price = 4,
+			card_effect = function(self, card)
+				if card:is_face() then
+					add_chips(30, card)
+				end
+			end,
+			sprite_index = 142, 
+			description = "played face cards give +30 \nchips when scored"
+		}),
+		joker_obj:new({
+			name = "scholar",
+			price = 4,
+			card_effect = function(self, card)
+				if card.rank == 'a' then
+					add_chips(20, card)
+					add_chips(4, card)
+				end
+			end,
+			sprite_index = 141, 
+			description = "played aces give +20 chips\nand +4 mult when scored"
+		}),
+		joker_obj:new({
+			name = "even steven",
+			price = 4,
+			card_effect = function(self, card)
+				if contains({'2','4','6','8','10'},card.rank) then
+					add_mult(4, card)
+				end
+			end,
+			sprite_index = 128,
+			description = "+4 mult for cards with even-numbered rank"
+		}),
+		joker_obj:new({
+			name = "gluttonous joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('c') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 177,
+			description = "played cards with club suit\ngive +3 mult when scored"
+		}),
+		joker_obj:new({
+			name = "lusty joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('h') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 177,
+			description = "played cards with heart suit\ngive +3 mult when scored"
+		}),
+		joker_obj:new({
+			name = "wrathful joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('s') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 180,
+			description = "played cards with spade suit\ngive +3 mult when scored"
+		}),
+		joker_obj:new({
+			name = "greedy joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('d') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 178,
+			description = "played cards with diamond suit\ngive +3 mult when scored"
 		}),
 		joker_obj:new({
 			name = "Add 60 Chips",
@@ -521,28 +619,28 @@ special_cards = {
 		tarot_obj:new({
 			name = "the sun",
 			price = 2,
-			effect = suit_change("H"),
+			effect = suit_change("h"),
 			sprite_index = 161,
 			description = "changes the suit of 3 selected \ncards to hearts",
 		}),
 		tarot_obj:new({
 			name = "the star",
 			price = 2,
-			effect = suit_change("D"),
+			effect = suit_change("d"),
 			sprite_index = 162,
 			description = "changes the suit of 3 selected \ncards to diamonds",
 		}),
 		tarot_obj:new({
 			name = "the moon",
 			price = 2,
-			effect = suit_change("C"),
+			effect = suit_change("c"),
 			sprite_index = 163,
 			description = "changes the suit of 3 selected \ncards to clubs",
 		}),
 		tarot_obj:new({
 			name = "the world",
 			price = 2,
-			effect = suit_change("S"),
+			effect = suit_change("s"),
 			sprite_index = 164,
 			description = "changes the suit of 3 selected \ncards to spades",
 		}),
@@ -820,6 +918,7 @@ function _update()
 		coresume(animation)
 		return
 	end
+
     --register inputs
     mx = stat(32)
     my = stat(33)
@@ -902,6 +1001,12 @@ function _draw()
 	draw_sparkles()
 end
 
+function debug_message(txt)
+	error_message = "\f7\#0" .. txt
+	pause(15)
+	error_message = ""
+end
+
 -- run as a coroutine so
 -- yield commands can be used
 function score_hand()
@@ -910,6 +1015,9 @@ function score_hand()
 	for card in all(scored_cards) do
 		add_chips( card.chips + card.effect_chips, card )
 		add_mult( card.mult, card )
+		for joker in all(joker_cards) do
+			joker:card_effect(card)
+		end
 	end
 	score_held_cards()
 	score_jokers()
@@ -932,7 +1040,7 @@ end
 -- hand (steel card, etc)
 function score_held_cards()
 	for card in all(hand) do
-		card:when_held_in_hand()
+		if(not card.selected) card:when_held_in_hand()
 	end
 end
 
@@ -1170,7 +1278,7 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
-	--add(shop_options, get_special_card_by_name("the chariot", "Tarots"))
+	add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
 	--add(shop_options, get_special_card_by_name("the empress", "Tarots"))
 end
 
@@ -1181,13 +1289,13 @@ function create_view_of_deck(table)
 	spade_cards = {}
 
 	for card in all(table) do
-		if card.suit == "H" then
+		if card.suit == "h" then
 			add(heart_cards, card)
-		elseif card.suit == "D" then
+		elseif card.suit == "d" then
 			add(diamond_cards, card)
-		elseif card.suit == "C" then
+		elseif card.suit == "c" then
 			add(club_cards, card)
-		elseif card.suit == "S" then
+		elseif card.suit == "s" then
 			add(spade_cards, card)
 		end
 	end
@@ -1790,8 +1898,8 @@ function contains_straight(cards)
 		return true 
 	end
 
-	-- Check special Aヌ█…5 straight (A, 5, 4, 3, 2)
-    if cards[1].rank == 'A' and
+	-- Check special aヌ█…5 straight (a, 5, 4, 3, 2)
+    if cards[1].rank == 'a' and
        cards[2].rank == '5' and
        cards[3].rank == '4' and
        cards[4].rank == '3' and
@@ -1874,7 +1982,7 @@ function sort_by_rank_decreasing(cards)
 end
 
 function find_1_rank_higher(rank)
-	if rank == 'A' then
+	if rank == 'a' then
 		return '2'
 	end
 	for x=1,#ranks do	
@@ -2028,14 +2136,14 @@ cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-77787777777877777778777777888777778787777787877777878777777c7777777c7777777c777777ccc7770000000000000000000000000000000000000000
-7788877777888777778887777787877777787777777877777778777777ccc77777ccc77777ccc77777c7c7770000000000000000000000000000000000000000
-77787777777877777778777777878777778787777787877777878777777c7777777c7777777c777777c7c7770000000000000000000000000000000000000000
-77777777788888777778888777778777787778887788887777888877ccc7ccccc777ccccccc7cccc7777c7770000000000000000000000000000000000000000
-7778877778777877787777877778877778777877777778777777787777c7c77cc777c77cc7c7c77c777cc7770000000000000000000000000000000000000000
-778787777888887778777877777877777877788877778777777788777cc7c77cccccc77cccc7c77c777c77770000000000000000000000000000000000000000
-7888887778777877787787777777777778787778777877777777787777c7c77cc77cc77c77c7c77c777777770000000000000000000000000000000000000000
-77778777788888777878888877787777787778887788888777888877ccc7cccccccccccc77c7cccc777c77770000000000000000000000000000000000000000
+7777777777787777777777777788877777878777778787777787877700000000777c7777777c777777ccc777788877777c777777771077775555555544444444
+778787777788877775555577778787777778777777787777777877770000000077ccc77777ccc77777c7c77778777777c7c77777711107775585585544474444
+7777777777787777595959577787877777878777778787777787877700000000777c7777777c777777c7c77778877887c7c777771111107755855855444c0444
+7778777778888877595959577777877778777888778888777788887700000000c777ccccccc7cccc7777c777787778777c7ccccc7111097755555555444cc544
+7877787778777877759595577778877778777877777778777777787700000000c777c77cc7c7c77c777cc7777888788777777c777710797755588555448c8544
+7788877778888877775999577778777778777888777787777777887700000000ccccc77cccc7c77c777c77777777778777777c777777797755888855488d8584
+7777777778777877777599577777777778787778777877777777787700000000c77cc77c77c7c77c777777777777788777777c777777797755855855488d8584
+7777777778888877777599577778777778777888778888877788887700000000cccccccc77c7cccc777c77777777777777777777777777775555555566666666
 ccccccccccccccccc777c777777ccccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
 ccccccccccccccccc7c7c7c77c7ccccccccccccc8c88c8cc7c7c7c7cc7c7c7c7cccccccc7c7ccccc000000000000000000000000000000000000000000000000
 ccc777ccc777c777c777c77777777ccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
@@ -2052,14 +2160,14 @@ ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555fffaaaaaaf
 f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddffff9aaaaaff566666f0000000000000000000000000000000000000000
 f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddffff99aaaaff556666f0000000000000000000000000000000000000000
 f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfffffffffffffffffff0000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000788788777779777777ccc777777d77770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000088a8a88777c9c777773c377777cdc7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000008888888779999977ccccccc77ddddd770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000008a888a879c999c97c3c7c3c7d8ddd8d70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000078aaa87779ccc977cc333cc77d888d770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000007788877777999777777c7777777d77770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000777877777779777777ccc77777ddd7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000777777777777777777777777777777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 01100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 17710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 17771000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
