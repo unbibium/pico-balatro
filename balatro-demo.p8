@@ -216,7 +216,11 @@ function special_obj:describe()
 	print("\^p"..self.type[1],120,99,self.fg)
 	spr(self.sprite_index,3,99)
 	print(self.name,card_width+8,99,self.fg)
-	print(self.description,1,110,self.fg)
+	if type(self.description) == "string" then
+		print(self.description,1,110,self.fg)
+	else
+		print(self:description(),1,110,self.fg)
+	end
 	print("\^p"..self.type[1],120,99,self.fg)
 end
 
@@ -245,7 +249,16 @@ tarot_obj=special_obj:new({
 			ref = tarot_cards, usable=true
 })
 planet_obj=special_obj:new({
-			type = "Planet", bg=12, fg=7
+			type = "Planet", bg=12, fg=7,
+			effect=function(self)
+				level_up_hand_type(self.hand,self.mult,self.chips)
+			end,
+			description=function(self)
+				return "levels up " .. self.hand ..
+					"\nadds +" .. tostr(self.mult) ..
+					" mult and +" .. tostr(self.chips) ..
+					" chips"
+			end
 })
 
 -- common function to add an effect
@@ -313,7 +326,7 @@ special_cards = {
 			name = "Add Random Mult",
 			price = 4,
 			effect = function(self)
-				add_mult( flr(rnd(25), self) )
+				add_mult( flr(rnd(23), self) )
 			end,
 			sprite_index = 131, 
 			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
@@ -391,94 +404,75 @@ special_cards = {
 	},
 	Planets = {
 		planet_obj:new({
-			name = "Level Up royal flush",
+			name = "king neptune",
 			price = 5,
-			effect = function()
-				level_up_hand_type("royal flush", 5, 50)
-			end,
+			hand = "royal flush",
+			chips = 50,
+			mult = 5,
 			sprite_index = 153,
-			description = "levels up the royal flush.\n+ 5 mult and + 50 chips",
 		}),
 		planet_obj:new({
-			name = "Neptune",
+			name = "neptune",
 			price = 5,
-			effect = function()
-				level_up_hand_type("straight flush", 4, 40)
-			end,
+			hand = "straight flush",
+			chips=40, mult=4,
 			sprite_index = 152,
-			description = "levels up the straight flush.\n+ 4 mult and + 40 chips",
 		}),
 		planet_obj:new({
-			name = "Mars",
+			name = "mars",
 			price = 4,
-			effect = function()
-				level_up_hand_type("four of a kind", 3, 30)
-			end,
+			hand = "four of a kind",
+			chips=30, mult=3,
 			sprite_index = 151,
-			description = "levels up the four of a kind.\n+ 3 mult and + 30 chips",
 		}),
 		planet_obj:new({
 			name = "earth",
 			price = 3,
-			effect = function()
-				level_up_hand_type("full house", 2, 25)
-			end,
+			hand = "full house",
+			chips=25, mult=2,
 			sprite_index = 150,
-			description = "levels up the full house.\n+ 2 mult and + 25 chips",
 		}),
 		planet_obj:new({
 			name = "jupiter",
 			price = 3,
-			effect = function()
-				level_up_hand_type("flush", 2, 15)
-			end,
+			hand = "flush",
+			chips=15, mult=2,
 			sprite_index = 149,
-			description = "levels up the flush.\n+ 2 mult and + 15 chips",
 		}),
 		planet_obj:new({
 			name = "saturn",
 			price = 3,
-			effect = function()
-				level_up_hand_type("straight", 3, 30)
-			end,
+			hand = "straight",
+			chips=30, mult=3,
 			sprite_index = 148,
-			description = "levels up the straight.\n+ 3 mult and + 30 chips",
 		}),
 		planet_obj:new({
 			name = "venus",
 			price = 2,
-			effect = function()
-				level_up_hand_type("three of a kind", 2, 20)
-			end,
+			hand = "three of a kind",
+			chips=20, mult=2,
 			sprite_index = 147,
-			description = "levels up the three of a kind.\n+ 2 mult and + 20 chips",
 		}),
 		planet_obj:new({
 			name = "uranus",
 			price = 2,
-			effect = function()
-				level_up_hand_type("two pair", 1, 20)
-			end,
+			hand = "two pair",
+			chips=20, mult=1,
 			sprite_index = 146,
-			description = "levels up the two pair\n+ 1 mult and + 20 chips",
 		}),
 		planet_obj:new({
 			name = "mercury",
 			price = 1,
-			effect = function()
-				level_up_hand_type("pair", 1, 15)
-			end,
+			hand = "pair",
+			chips=15, mult=1,
 			sprite_index = 145,
-			description = "levels up the pair.\n+ 1 mult and + 15 chips",
 		}),
 		planet_obj:new({
 			name = "pluto",
 			price = 1,
-			effect = function()
-				level_up_hand_type("high card", 1, 10)
-			end,
+			hand = "high card",
+			chips=10, mult=1,
 			sprite_index = 144,
-			description = "levels up the high card.\n+ 1 mult and + 10 chips",
 		})
 	},
 	Tarots = {
@@ -1588,9 +1582,9 @@ function buy_button_clicked()
 
 			-- Planet 
 			if special_card.type == "Planet" then	
-				money = money - special_card.price
+				money -= special_card.price
 				sfx(sfx_buy_btn_clicked_planet)
-				special_card.effect()
+				special_card:effect()
 				del(shop_options, special_card)
 			end
 		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
