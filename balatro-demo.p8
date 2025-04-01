@@ -413,7 +413,7 @@ special_cards = {
 					add_mult(3, card)
 				end
 			end,
-			sprite_index = 177,
+			sprite_index = 179,
 			description = "played cards with club suit\ngive +3 mult when scored"
 		}),
 		joker_obj:new({
