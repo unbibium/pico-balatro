@@ -15,14 +15,14 @@ init_draw = true
 sparkles = {}
 max_selected = 5
 card_selected_count = 0
-suits = {'H', 'D', 'C', 'S'}
-suit_colors = {S=5,C=12,H=8,D=9}
-suit_sprites = {S=16,C=17,H=18,D=19}
+suits = {'h', 'd', 'c', 's'}
+suit_colors = {s=5,c=12,h=8,d=9}
+suit_sprites = {s=16,c=17,h=18,d=19}
 ranks = {
-	{rank = 'A', base_chips = 11},
-	{rank = 'K', base_chips = 10},
-	{rank = 'Q', base_chips = 10},
-	{rank = 'J', base_chips = 10},
+	{rank = 'a', base_chips = 11},
+	{rank = 'k', base_chips = 10},
+	{rank = 'q', base_chips = 10},
+	{rank = 'j', base_chips = 10},
 	{rank = '10', base_chips = 10},
 	{rank = '9', base_chips = 9},
 	{rank = '8', base_chips = 8},
@@ -39,16 +39,19 @@ joker_cards = {}
 tarot_cards = {}
 
 hand_types = {
-	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
-	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
-	["Four of a Kind"] = {base_chips = 60, base_mult = 7, level = 1},
-	["Full House"] = {base_chips = 40, base_mult = 4, level = 1},
-	["Flush"] = {base_chips = 35, base_mult = 4, level = 1},
-	["Straight"] = {base_chips = 30, base_mult = 4, level = 1},
-	["Three of a Kind"] = {base_chips = 30, base_mult = 3, level = 1},
-	["Two Pair"] = {base_chips = 20, base_mult = 2, level = 1},
-	["Pair"] = {base_chips = 10, base_mult = 2, level = 1},
-	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
+	["flush five"] = {base_chips = 160, base_mult = 16, level = 1},
+	["flush house"] = {base_chips = 140, base_mult = 14, level = 1},
+	["fixe of a kind"] = {base_chips = 120, base_mult = 12, level = 1},
+	["royal flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["straight flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["four of a kind"] = {base_chips = 60, base_mult = 7, level = 1},
+	["full house"] = {base_chips = 40, base_mult = 4, level = 1},
+	["flush"] = {base_chips = 35, base_mult = 4, level = 1},
+	["straight"] = {base_chips = 30, base_mult = 4, level = 1},
+	["three of a kind"] = {base_chips = 30, base_mult = 3, level = 1},
+	["two pair"] = {base_chips = 20, base_mult = 2, level = 1},
+	["pair"] = {base_chips = 10, base_mult = 2, level = 1},
+	["high card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
 hand_types_copy = {}
 -- animations
@@ -191,7 +194,9 @@ card_obj=item_obj:new({
 	pos_x = 0,
 	pos_y = 0,
 	when_held_in_hand = do_nothing,
-	when_held_at_end = do_nothing
+	when_held_at_end = do_nothing,
+	effect = do_nothing,
+	card_effect = do_nothing
 })
 function card_obj:reset()
 	self.selected=false
@@ -237,6 +242,16 @@ function card_obj:add_rank(d)
 	self:set_rank_by_order(new_order)
 end
 
+function card_obj:is_face()
+	-- todo: implement pareidolia
+	return contains({'k','j','q'},self.rank)
+end
+
+function card_obj:is_suit(target)
+	-- todo: implement smeared joker
+	return self.suit == target
+end
+
 -- special cards
 special_obj=item_obj:new({})
 -- description shown when mouse
@@ -248,7 +263,11 @@ function special_obj:describe()
 	print("\^p"..self.type[1],120,99,self.fg)
 	spr(self.sprite_index,3,99)
 	print(self.name,card_width+8,99,self.fg)
-	print(self.description,1,110,self.fg)
+	if type(self.description) == "string" then
+		print(self.description,1,110,self.fg)
+	else
+		print(self:description(),1,110,self.fg)
+	end
 	print("\^p"..self.type[1],120,99,self.fg)
 end
 
@@ -270,14 +289,25 @@ end
 
 joker_obj=special_obj:new({
 			type = "Joker",bg=0,fg=7,
-			ref = joker_cards
+			ref = joker_cards,
+			effect=function(self) end,
+			card_effect=function(self,card) end
 })
 tarot_obj=special_obj:new({
 			type = "Tarot", bg=15, fg=1,
 			ref = tarot_cards, usable=true
 })
 planet_obj=special_obj:new({
-			type = "Planet", bg=12, fg=7
+			type = "Planet", bg=12, fg=7,
+			effect=function(self)
+				level_up_hand_type(self.hand,self.mult,self.chips)
+			end,
+			description=function(self)
+				return "levels up " .. self.hand ..
+					"\nadds +" .. tostr(self.mult) ..
+					" mult and +" .. tostr(self.chips) ..
+					" chips"
+			end
 })
 
 -- common function to add an effect
@@ -315,13 +345,13 @@ end
 special_cards = {
 	Jokers = {
 		joker_obj:new({
-			name = "Add 4 Mult",
+			name = "joker",
 			price = 2,
 			effect = function(self)
 				add_mult(4, self)
 			end,
-			sprite_index = 128,
-			description = "Adds 4 to your mult",
+			sprite_index = 128, 
+			description = "+4 mult"
 		}),
 		joker_obj:new({
 			name = "Add 8 Mult",
@@ -330,22 +360,26 @@ special_cards = {
 				add_mult(8, self)
 			end,
 			sprite_index = 129, 
-			description = "Adds 8 to your mult",
+			description = "+8 mult"
 		}),
 		joker_obj:new({
-			name = "Add 12 Mult",
-			price = 4,
+			name = "raised fist",
+			price = 3,
 			effect = function(self)
-				add_mult(12, self)
+				min_rank=99
+				for card in all(hand) do
+					if(not card.selected) min_rank=min(min_rank,card.chips)
+				end
+				add_mult(2*min_rank, self)
 			end,
 			sprite_index = 130, 
-			description = "Adds 12 to your mult",
+			description = "adds double the rank of lowest\nranked card held in hand\nto mult"
 		}),
 		joker_obj:new({
 			name = "Add Random Mult",
 			price = 4,
 			effect = function(self)
-				add_mult( flr(rnd(25), self) )
+				add_mult( flr(rnd(23), self) )
 			end,
 			sprite_index = 131, 
 			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
@@ -378,13 +412,93 @@ special_cards = {
 			description = "Multiplies your mult by 3",
 		}),
 		joker_obj:new({
-			name = "Add 30 Chips",
-			price = 2,
-			effect = function(self)
-				add_chips(30, self)
+			name = "odd todd",
+			price = 4,
+			card_effect = function(self, card)
+				if (contains({'a','3','5','7','9'},card.rank)) then
+					add_chips(31, card)
+				end
 			end,
-			sprite_index = 135, 
-			description = "Adds 30 to your chips",
+			sprite_index = 140, 
+			description = "adds 31 chips for each card with odd rank",
+		}),
+		joker_obj:new({
+			name = "scary face",
+			price = 4,
+			card_effect = function(self, card)
+				if card:is_face() then
+					add_chips(30, card)
+				end
+			end,
+			sprite_index = 142, 
+			description = "played face cards give +30 \nchips when scored"
+		}),
+		joker_obj:new({
+			name = "scholar",
+			price = 4,
+			card_effect = function(self, card)
+				if card.rank == 'a' then
+					add_chips(20, card)
+					add_chips(4, card)
+				end
+			end,
+			sprite_index = 141, 
+			description = "played aces give +20 chips\nand +4 mult when scored"
+		}),
+		joker_obj:new({
+			name = "even steven",
+			price = 4,
+			card_effect = function(self, card)
+				if contains({'2','4','6','8','10'},card.rank) then
+					add_mult(4, card)
+				end
+			end,
+			sprite_index = 128,
+			description = "+4 mult for cards with even-numbered rank"
+		}),
+		joker_obj:new({
+			name = "gluttonous joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('c') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 179,
+			description = "played cards with club suit\ngive +3 mult when scored"
+		}),
+		joker_obj:new({
+			name = "lusty joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('h') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 177,
+			description = "played cards with heart suit\ngive +3 mult when scored"
+		}),
+		joker_obj:new({
+			name = "wrathful joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('s') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 180,
+			description = "played cards with spade suit\ngive +3 mult when scored"
+		}),
+		joker_obj:new({
+			name = "greedy joker",
+			price = 5,
+			card_effect = function(self, card)
+				if card:is_suit('d') then
+					add_mult(3, card)
+				end
+			end,
+			sprite_index = 178,
+			description = "played cards with diamond suit\ngive +3 mult when scored"
 		}),
 		joker_obj:new({
 			name = "Add 60 Chips",
@@ -423,94 +537,75 @@ special_cards = {
 	},
 	Planets = {
 		planet_obj:new({
-			name = "Level Up Royal Flush",
+			name = "king neptune",
 			price = 5,
-			effect = function()
-				level_up_hand_type("Royal Flush", 5, 50)
-			end,
+			hand = "royal flush",
+			chips = 50,
+			mult = 5,
 			sprite_index = 153,
-			description = "levels up the royal flush.\n+ 5 mult and + 50 chips",
 		}),
 		planet_obj:new({
-			name = "Neptune",
+			name = "neptune",
 			price = 5,
-			effect = function()
-				level_up_hand_type("Straight Flush", 4, 40)
-			end,
+			hand = "straight flush",
+			chips=40, mult=4,
 			sprite_index = 152,
-			description = "levels up the straight flush.\n+ 4 mult and + 40 chips",
 		}),
 		planet_obj:new({
-			name = "Mars",
+			name = "mars",
 			price = 4,
-			effect = function()
-				level_up_hand_type("Four of a Kind", 3, 30)
-			end,
+			hand = "four of a kind",
+			chips=30, mult=3,
 			sprite_index = 151,
-			description = "levels up the Four of a Kind.\n+ 3 mult and + 30 chips",
 		}),
 		planet_obj:new({
 			name = "earth",
 			price = 3,
-			effect = function()
-				level_up_hand_type("Full House", 2, 25)
-			end,
+			hand = "full house",
+			chips=25, mult=2,
 			sprite_index = 150,
-			description = "levels up the full house.\n+ 2 mult and + 25 chips",
 		}),
 		planet_obj:new({
 			name = "jupiter",
 			price = 3,
-			effect = function()
-				level_up_hand_type("Flush", 2, 15)
-			end,
+			hand = "flush",
+			chips=15, mult=2,
 			sprite_index = 149,
-			description = "levels up the Flush.\n+ 2 mult and + 15 chips",
 		}),
 		planet_obj:new({
 			name = "saturn",
 			price = 3,
-			effect = function()
-				level_up_hand_type("Straight", 3, 30)
-			end,
+			hand = "straight",
+			chips=30, mult=3,
 			sprite_index = 148,
-			description = "levels up the straight.\n+ 3 mult and + 30 chips",
 		}),
 		planet_obj:new({
 			name = "venus",
 			price = 2,
-			effect = function()
-				level_up_hand_type("Three of a Kind", 2, 20)
-			end,
+			hand = "three of a kind",
+			chips=20, mult=2,
 			sprite_index = 147,
-			description = "levels up the three of a kind.\n+ 2 mult and + 20 chips",
 		}),
 		planet_obj:new({
 			name = "uranus",
 			price = 2,
-			effect = function()
-				level_up_hand_type("Two Pair", 1, 20)
-			end,
+			hand = "two pair",
+			chips=20, mult=1,
 			sprite_index = 146,
-			description = "levels up the two pair\n+ 1 mult and + 20 chips",
 		}),
 		planet_obj:new({
 			name = "mercury",
 			price = 1,
-			effect = function()
-				level_up_hand_type("Pair", 1, 15)
-			end,
+			hand = "pair",
+			chips=15, mult=1,
 			sprite_index = 145,
-			description = "levels up the pair.\n+ 1 mult and + 15 chips",
 		}),
 		planet_obj:new({
 			name = "pluto",
 			price = 1,
-			effect = function()
-				level_up_hand_type("High Card", 1, 10)
-			end,
+			hand = "high card",
+			chips=10, mult=1,
 			sprite_index = 144,
-			description = "levels up the high card.\n+ 1 mult and + 10 chips",
 		})
 	},
 	Tarots = {
@@ -553,28 +648,28 @@ special_cards = {
 		tarot_obj:new({
 			name = "the sun",
 			price = 2,
-			effect = suit_change("H"),
+			effect = suit_change("h"),
 			sprite_index = 161,
 			description = "changes the suit of 3 selected \ncards to hearts",
 		}),
 		tarot_obj:new({
 			name = "the star",
 			price = 2,
-			effect = suit_change("D"),
+			effect = suit_change("d"),
 			sprite_index = 162,
 			description = "changes the suit of 3 selected \ncards to diamonds",
 		}),
 		tarot_obj:new({
 			name = "the moon",
 			price = 2,
-			effect = suit_change("C"),
+			effect = suit_change("c"),
 			sprite_index = 163,
 			description = "changes the suit of 3 selected \ncards to clubs",
 		}),
 		tarot_obj:new({
 			name = "the world",
 			price = 2,
-			effect = suit_change("S"),
+			effect = suit_change("s"),
 			sprite_index = 164,
 			description = "changes the suit of 3 selected \ncards to spades",
 		}),
@@ -953,6 +1048,12 @@ function _draw()
 	draw_sparkles()
 end
 
+function debug_message(txt)
+	error_message = "\f7\#0" .. txt
+	pause(15)
+	error_message = ""
+end
+
 -- run as a coroutine so
 -- yield commands can be used
 function score_hand()
@@ -961,6 +1062,9 @@ function score_hand()
 	for card in all(scored_cards) do
 		add_chips( card.chips + card.effect_chips, card )
 		add_mult( card.mult, card )
+		for joker in all(joker_cards) do
+			joker:card_effect(card)
+		end
 	end
 	score_held_cards()
 	score_jokers()
@@ -983,7 +1087,7 @@ end
 -- hand (steel card, etc)
 function score_held_cards()
 	for card in all(hand) do
-		card:when_held_in_hand()
+		if(not card.selected) card:when_held_in_hand()
 	end
 end
 
@@ -995,9 +1099,8 @@ function update_selected_cards()
 			del(selected_cards, card)	
 		end
 	end
-	scored_cards = {}
 	local hand_type = check_hand_type()
-	if hand_type ~= "None" then
+	if hand_type ~= "none" then
 		hand_type_text = hand_type
 		chips = bigscore:new(0)
 		mult = bigscore:new(0)
@@ -1017,29 +1120,85 @@ function deselect_all_selected_cards()
 end
 
 function check_hand_type()
-	if is_royal_flush() then
-		return "Royal Flush"	
-	elseif is_straight_flush() then
-		return "Straight Flush"
-	elseif is_four_of_a_kind() then
-		return "Four of a Kind"
-	elseif is_full_house() then
-		return "Full House"
-	elseif is_flush() then
-		return "Flush"
-	elseif is_straight() then
-		return "Straight"
-	elseif is_three_of_a_kind() then
-		return "Three of a Kind"
-	elseif is_two_pair() then
-		return "Two Pair"
-	elseif is_pair() then
-		return "Pair"	
-	elseif is_high_card() then
-		return "High Card"
-	else
+	scored_cards = {}
+	if #selected_cards==0 then
 		hand_type_text = ""
-		return "None"
+		return "none"
+	end
+	local flush=false
+ if #selected_cards>=5 then
+		flush=contains_flush(selected_cards)
+	end
+	local cf = card_frequencies()
+	if flush then
+		add_all_cards_to_score(selected_cards)
+		if count(cf,5)>0 then
+			return "flush five"
+		elseif count(cf,3)>0 and count(cf,2)>0 then
+			return "flush house"
+		elseif contains_straight(cf) then
+		 if contains_royal(cards) then
+				return "royal flush"	
+			else
+				return "straight flush"
+			end
+		end
+		return "flush"
+	end
+	--non-flush decision tree
+	if count(cf,5)>0 then
+		add_all_cards_to_score(selected_cards)
+		return "five of a kind"
+	elseif count(cf,4)>0 then
+		score_cards_of_count(cf,4)
+		return "four of a kind"
+	elseif count(cf,3)>0 then
+		score_cards_of_count(cf,3)
+		if count(cf,2)>0 then
+			score_cards_of_count(cf,2)
+			return "full house"
+		end
+		return "three of a kind"
+	elseif contains_straight(cf) then
+		add_all_cards_to_score(selected_cards)
+		return "straight"
+	elseif count(cf,2)>0 then
+		score_cards_of_count(cf,2)
+		if count(cf,2)>1 then
+			return "two pair"
+		end
+		return "pair"	
+	end
+	-- high card is all that's left
+	add(scored_cards,get_highest_selected())
+	return "high card"
+end
+
+function get_highest_selected()
+	local min_order=99
+	result=nil
+	for card in all(selected_cards) do
+		if card.order < min_order then
+			result=card
+			min_order=card.order
+		end
+	end
+	return result
+end
+
+-- score sets of matching cards
+function	score_cards_of_count(cf,qty)
+	for i, q in pairs(cf) do
+		if(q==qty) score_cards_of_order(i)
+	end
+end
+
+-- score cards matched by order
+-- as a proxy for rank, just
+-- like card_frequencies()
+function score_cards_of_order(o)
+	for card in all(selected_cards) do
+		if(card.order==o) add(scored_cards,card)
 	end
 end
 
@@ -1136,7 +1295,10 @@ end
 function create_base_deck()
 	local base_deck = {}
 
-	-- Set the sorting order		
+	-- Set the sorting order, also
+	-- used as proxy for rank in 
+	-- array returned by 
+	-- card_frequencies()
 	for i, card in pairs(ranks) do
     	card.order = 14 - i
 	end
@@ -1221,7 +1383,7 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
-	add(shop_options, get_special_card_by_name("strength", "Tarots"))
+	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
 	--add(shop_options, get_special_card_by_name("the empress", "Tarots"))
 end
 
@@ -1232,13 +1394,13 @@ function create_view_of_deck(table)
 	spade_cards = {}
 
 	for card in all(table) do
-		if card.suit == "H" then
+		if card.suit == "h" then
 			add(heart_cards, card)
-		elseif card.suit == "D" then
+		elseif card.suit == "d" then
 			add(diamond_cards, card)
-		elseif card.suit == "C" then
+		elseif card.suit == "c" then
 			add(club_cards, card)
-		elseif card.suit == "S" then
+		elseif card.suit == "s" then
 			add(spade_cards, card)
 		end
 	end
@@ -1579,9 +1741,9 @@ and in_shop == true and money >= special_card.price then
 
 			-- Planet 
 			if special_card.type == "Planet" then	
-				money = money - special_card.price
+				money -= special_card.price
 				sfx(sfx_buy_btn_clicked_planet)
-				special_card.effect()
+				special_card:effect()
 				del(shop_options, special_card)
 			end
 		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
@@ -1663,118 +1825,18 @@ function exit_view_deck_button_clicked()
 	end
 end
 
--- Hand Detection
-function is_royal_flush()
-	if contains_royal(selected_cards) and contains_flush(selected_cards) then
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
+-- hand detection
 
-function is_straight_flush()
-	if contains_flush(selected_cards) and contains_straight(selected_cards) then	
-		add_all_cards_to_score(selected_cards)
-		return true
+-- collect card frequencies to
+-- detect matches and runs.
+-- indexed by card.order as a
+-- numeric proxy for rank.
+function card_frequencies()
+	local histogram={0,0,0,0,0,0,0,0,0,0,0,0,0}
+	for card in all(selected_cards) do
+		histogram[card.order] += 1
 	end
-	return false
-end
-
-function is_four_of_a_kind()
-	if contains_four_of_a_kind(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		for x=1, #selected_cards - 3 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank and selected_cards[x].rank == selected_cards[x + 3].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				add(scored_cards, selected_cards[x + 2])	
-				add(scored_cards, selected_cards[x + 3])	
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function is_full_house()
-	if contains_pair(selected_cards) and contains_three_of_a_kind(selected_cards) then
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
-
-function is_flush()
-	if contains_flush(selected_cards) then	
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
-
-function is_straight()
-	if contains_straight(selected_cards) then	
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
-
-function is_three_of_a_kind()
-	if contains_three_of_a_kind(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		for x=1, #selected_cards - 2 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				add(scored_cards, selected_cards[x + 2])	
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function is_two_pair()
-	if contains_two_pair(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		local times = 0
-		for x=1, #selected_cards - 1 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				times = times + 1
-				if times == 2 then
-					return true
-				end
-				x = x + 2
-			end
-		end
-	end
-	return false
-end
-
-function is_pair()
-	if contains_pair(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		for x=1, #selected_cards - 1 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function is_high_card()
-	if #selected_cards > 0 then
-		sort_by_rank_decreasing(selected_cards)
-		add(scored_cards, selected_cards[1])
-		return true
-	end
-	return false
+	return histogram
 end
 
 -- Helpers
@@ -1786,28 +1848,6 @@ function contains(table, value)
         end
     end
     return false
-end
-
-function contains_royal(cards)
-	if #cards == 5 then
-		sort_by_rank_decreasing(cards)
-		local start_order = 13
-		for x=1, #cards do
-			if start_order != cards[x].order then
-				return false
-			end
-			start_order = start_order - 1
-		end
-		return true 
-	end
-	return false
-end
-
-function contains_four_of_a_kind(cards)
-	if contains_multiple_of_a_rank(cards, 4) then
-		return true
-	end
-	return false
 end
 
 function contains_flush(cards)
@@ -1823,89 +1863,42 @@ function contains_flush(cards)
 	return false
 end
 
-function contains_straight(cards)
-	if #cards ~= 5 then
-        return false
-    end
-
-	sort_by_rank_decreasing(cards)
-
-		
-	local is_normal_straight = true
-	for x=1,#cards - 1 do
-		if cards[x].order != cards[x + 1].order + 1 then
-			is_normal_straight = false
-			break
-		end
+function contains_royal(cards)
+	-- only called if straight is
+	-- already detected, so just
+	-- return false if any 
+	-- commoners present
+ local royals={'a','k','q','j','10'}
+	for c in all(cards) do
+		if(not contains(royals,c.rank)) return false
 	end
-	if is_normal_straight then	
-		return true 
-	end
-
-	-- Check special Aヌ█…5 straight (A, 5, 4, 3, 2)
-    if cards[1].rank == 'A' and
-       cards[2].rank == '5' and
-       cards[3].rank == '4' and
-       cards[4].rank == '3' and
-       cards[5].rank == '2' then
-        return true
-    end
-
-	return false
+	return true
 end
 
-function contains_three_of_a_kind(cards)
-	if contains_multiple_of_a_rank(cards, 3) then
-		return true
+function contains_straight(cf)
+	-- todo: implement shortcut joker
+	local run_goal=5
+	if #selected_cards<run_goal then
+		return false
 	end
-	return false
-end
-
-function contains_two_pair(cards)
-	if #cards >= 4 then
-		local order_arr = {}
-		for card in all(cards) do
-			add(order_arr, card.order)		
-		end
-		local times = 0
-		local first_pair = 0
-		for order_num in all(order_arr) do 
-			if count(order_arr, order_num) == 2 and order_num != first_pair then
-				times = times + 1
-				first_pair = order_num
-				if times == 2 then
-					return true
-				end
-			end
-		end
-	end
-	return false
-end
-
-function contains_pair(cards)
-	if contains_multiple_of_a_rank(cards, 2) then
-		return true
-	end
-	return false
-end
-
-function contains_multiple_of_a_rank(cards, num)
-	if #cards >= num then
-		local order_arr = {}
-		for card in all(cards) do
-			add(order_arr, card.order)		
-		end
-		for order_num in all(order_arr) do 
-			if count(order_arr, order_num) == num then
+	local run_length=0
+	-- special case for a,2,3,4,5
+	if(cf[#cf]>0) run_length=1
+	-- detect run
+	for f in all(cf) do
+		if f>0 then
+			run_length += 1
+			if run_length >= run_goal then
 				return true
 			end
+		else
+			run_length=0
 		end
 	end
 	return false
 end
 
 function add_all_cards_to_score(cards)
-	sort_by_rank_decreasing(cards)
 	for card in all(cards) do
 		add(scored_cards, card)
 	end
@@ -2071,14 +2064,14 @@ cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-77787777777877777778777777888777778787777787877777878777777c7777777c7777777c777777ccc7770000000000000000000000000000000000000000
-7788877777888777778887777787877777787777777877777778777777ccc77777ccc77777ccc77777c7c7770000000000000000000000000000000000000000
-77787777777877777778777777878777778787777787877777878777777c7777777c7777777c777777c7c7770000000000000000000000000000000000000000
-77777777788888777778888777778777787778887788887777888877ccc7ccccc777ccccccc7cccc7777c7770000000000000000000000000000000000000000
-7778877778777877787777877778877778777877777778777777787777c7c77cc777c77cc7c7c77c777cc7770000000000000000000000000000000000000000
-778787777888887778777877777877777877788877778777777788777cc7c77cccccc77cccc7c77c777c77770000000000000000000000000000000000000000
-7888887778777877787787777777777778787778777877777777787777c7c77cc77cc77c77c7c77c777777770000000000000000000000000000000000000000
-77778777788888777878888877787777787778887788888777888877ccc7cccccccccccc77c7cccc777c77770000000000000000000000000000000000000000
+7777777777787777777777777788877777878777778787777787877700000000777c7777777c777777ccc777788877777c777777771077775555555544444444
+778787777788877775555577778787777778777777787777777877770000000077ccc77777ccc77777c7c77778777777c7c77777711107775585585544474444
+7777777777787777595959577787877777878777778787777787877700000000777c7777777c777777c7c77778877887c7c777771111107755855855444c0444
+7778777778888877595959577777877778777888778888777788887700000000c777ccccccc7cccc7777c777787778777c7ccccc7111097755555555444cc544
+7877787778777877759595577778877778777877777778777777787700000000c777c77cc7c7c77c777cc7777888788777777c777710797755588555448c8544
+7788877778888877775999577778777778777888777787777777887700000000ccccc77cccc7c77c777c77777777778777777c777777797755888855488d8584
+7777777778777877777599577777777778787778777877777777787700000000c77cc77c77c7c77c777777777777788777777c777777797755855855488d8584
+7777777778888877777599577778777778777888778888877788887700000000cccccccc77c7cccc777c77777777777777777777777777775555555566666666
 ccccccccccccccccc777c777777ccccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
 ccccccccccccccccc7c7c7c77c7ccccccccccccc8c88c8cc7c7c7c7cc7c7c7c7cccccccc7c7ccccc000000000000000000000000000000000000000000000000
 ccc777ccc777c777c777c77777777ccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
@@ -2095,14 +2088,14 @@ ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555fffaaaaaaf
 f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddffff9aaaaaff566666f0000000000000000000000000000000000000000
 f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddffff99aaaaff556666f0000000000000000000000000000000000000000
 f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfffffffffffffffffff0000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000788788777779777777ccc777777d77770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000088a8a88777c9c777773c377777cdc7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000008888888779999977ccccccc77ddddd770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000008a888a879c999c97c3c7c3c7d8ddd8d70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000078aaa87779ccc977cc333cc77d888d770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000007788877777999777777c7777777d77770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000777877777779777777ccc77777ddd7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000777777777777777777777777777777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 01100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 17710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 17771000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
