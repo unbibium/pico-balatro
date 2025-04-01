@@ -39,16 +39,19 @@ joker_cards = {}
 tarot_cards = {}
 
 hand_types = {
-	["Royal Flush"] = {base_chips = 100, base_mult = 8, level = 1},
-	["Straight Flush"] = {base_chips = 100, base_mult = 8, level = 1},
-	["Four of a Kind"] = {base_chips = 60, base_mult = 7, level = 1},
-	["Full House"] = {base_chips = 40, base_mult = 4, level = 1},
-	["Flush"] = {base_chips = 35, base_mult = 4, level = 1},
-	["Straight"] = {base_chips = 30, base_mult = 4, level = 1},
-	["Three of a Kind"] = {base_chips = 30, base_mult = 3, level = 1},
-	["Two Pair"] = {base_chips = 20, base_mult = 2, level = 1},
-	["Pair"] = {base_chips = 10, base_mult = 2, level = 1},
-	["High Card"] = {base_chips = 5, base_mult = 1, level = 1}
+	["flush five"] = {base_chips = 160, base_mult = 16, level = 1},
+	["flush house"] = {base_chips = 140, base_mult = 14, level = 1},
+	["fixe of a kind"] = {base_chips = 120, base_mult = 12, level = 1},
+	["royal flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["straight flush"] = {base_chips = 100, base_mult = 8, level = 1},
+	["four of a kind"] = {base_chips = 60, base_mult = 7, level = 1},
+	["full house"] = {base_chips = 40, base_mult = 4, level = 1},
+	["flush"] = {base_chips = 35, base_mult = 4, level = 1},
+	["straight"] = {base_chips = 30, base_mult = 4, level = 1},
+	["three of a kind"] = {base_chips = 30, base_mult = 3, level = 1},
+	["two pair"] = {base_chips = 20, base_mult = 2, level = 1},
+	["pair"] = {base_chips = 10, base_mult = 2, level = 1},
+	["high card"] = {base_chips = 5, base_mult = 1, level = 1}
 }
 hand_types_copy = {}
 -- animations
@@ -225,7 +228,11 @@ function special_obj:describe()
 	print("\^p"..self.type[1],120,99,self.fg)
 	spr(self.sprite_index,3,99)
 	print(self.name,card_width+8,99,self.fg)
-	print(self.description,1,110,self.fg)
+	if type(self.description) == "string" then
+		print(self.description,1,110,self.fg)
+	else
+		print(self:description(),1,110,self.fg)
+	end
 	print("\^p"..self.type[1],120,99,self.fg)
 end
 
@@ -256,7 +263,16 @@ tarot_obj=special_obj:new({
 			ref = tarot_cards, usable=true
 })
 planet_obj=special_obj:new({
-			type = "Planet", bg=12, fg=7
+			type = "Planet", bg=12, fg=7,
+			effect=function(self)
+				level_up_hand_type(self.hand,self.mult,self.chips)
+			end,
+			description=function(self)
+				return "levels up " .. self.hand ..
+					"\nadds +" .. tostr(self.mult) ..
+					" mult and +" .. tostr(self.chips) ..
+					" chips"
+			end
 })
 
 -- common function to add an effect
@@ -328,7 +344,7 @@ special_cards = {
 			name = "Add Random Mult",
 			price = 4,
 			effect = function(self)
-				add_mult( flr(rnd(25), self) )
+				add_mult( flr(rnd(23), self) )
 			end,
 			sprite_index = 131, 
 			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
@@ -486,94 +502,75 @@ special_cards = {
 	},
 	Planets = {
 		planet_obj:new({
-			name = "Level Up Royal Flush",
+			name = "king neptune",
 			price = 5,
-			effect = function()
-				level_up_hand_type("Royal Flush", 5, 50)
-			end,
+			hand = "royal flush",
+			chips = 50,
+			mult = 5,
 			sprite_index = 153,
-			description = "levels up the royal flush.\n+ 5 mult and + 50 chips",
 		}),
 		planet_obj:new({
-			name = "Neptune",
+			name = "neptune",
 			price = 5,
-			effect = function()
-				level_up_hand_type("Straight Flush", 4, 40)
-			end,
+			hand = "straight flush",
+			chips=40, mult=4,
 			sprite_index = 152,
-			description = "levels up the straight flush.\n+ 4 mult and + 40 chips",
 		}),
 		planet_obj:new({
-			name = "Mars",
+			name = "mars",
 			price = 4,
-			effect = function()
-				level_up_hand_type("Four of a Kind", 3, 30)
-			end,
+			hand = "four of a kind",
+			chips=30, mult=3,
 			sprite_index = 151,
-			description = "levels up the Four of a Kind.\n+ 3 mult and + 30 chips",
 		}),
 		planet_obj:new({
 			name = "earth",
 			price = 3,
-			effect = function()
-				level_up_hand_type("Full House", 2, 25)
-			end,
+			hand = "full house",
+			chips=25, mult=2,
 			sprite_index = 150,
-			description = "levels up the full house.\n+ 2 mult and + 25 chips",
 		}),
 		planet_obj:new({
 			name = "jupiter",
 			price = 3,
-			effect = function()
-				level_up_hand_type("Flush", 2, 15)
-			end,
+			hand = "flush",
+			chips=15, mult=2,
 			sprite_index = 149,
-			description = "levels up the Flush.\n+ 2 mult and + 15 chips",
 		}),
 		planet_obj:new({
 			name = "saturn",
 			price = 3,
-			effect = function()
-				level_up_hand_type("Straight", 3, 30)
-			end,
+			hand = "straight",
+			chips=30, mult=3,
 			sprite_index = 148,
-			description = "levels up the straight.\n+ 3 mult and + 30 chips",
 		}),
 		planet_obj:new({
 			name = "venus",
 			price = 2,
-			effect = function()
-				level_up_hand_type("Three of a Kind", 2, 20)
-			end,
+			hand = "three of a kind",
+			chips=20, mult=2,
 			sprite_index = 147,
-			description = "levels up the three of a kind.\n+ 2 mult and + 20 chips",
 		}),
 		planet_obj:new({
 			name = "uranus",
 			price = 2,
-			effect = function()
-				level_up_hand_type("Two Pair", 1, 20)
-			end,
+			hand = "two pair",
+			chips=20, mult=1,
 			sprite_index = 146,
-			description = "levels up the two pair\n+ 1 mult and + 20 chips",
 		}),
 		planet_obj:new({
 			name = "mercury",
 			price = 1,
-			effect = function()
-				level_up_hand_type("Pair", 1, 15)
-			end,
+			hand = "pair",
+			chips=15, mult=1,
 			sprite_index = 145,
-			description = "levels up the pair.\n+ 1 mult and + 15 chips",
 		}),
 		planet_obj:new({
 			name = "pluto",
 			price = 1,
-			effect = function()
-				level_up_hand_type("High Card", 1, 10)
-			end,
+			hand = "high card",
+			chips=10, mult=1,
 			sprite_index = 144,
-			description = "levels up the high card.\n+ 1 mult and + 10 chips",
 		})
 	},
 	Tarots = {
@@ -1052,9 +1049,8 @@ function update_selected_cards()
 			del(selected_cards, card)	
 		end
 	end
-	scored_cards = {}
 	local hand_type = check_hand_type()
-	if hand_type ~= "None" then
+	if hand_type ~= "none" then
 		hand_type_text = hand_type
 		chips = bigscore:new(0)
 		mult = bigscore:new(0)
@@ -1074,29 +1070,85 @@ function deselect_all_selected_cards()
 end
 
 function check_hand_type()
-	if is_royal_flush() then
-		return "Royal Flush"	
-	elseif is_straight_flush() then
-		return "Straight Flush"
-	elseif is_four_of_a_kind() then
-		return "Four of a Kind"
-	elseif is_full_house() then
-		return "Full House"
-	elseif is_flush() then
-		return "Flush"
-	elseif is_straight() then
-		return "Straight"
-	elseif is_three_of_a_kind() then
-		return "Three of a Kind"
-	elseif is_two_pair() then
-		return "Two Pair"
-	elseif is_pair() then
-		return "Pair"	
-	elseif is_high_card() then
-		return "High Card"
-	else
+	scored_cards = {}
+	if #selected_cards==0 then
 		hand_type_text = ""
-		return "None"
+		return "none"
+	end
+	local flush=false
+ if #selected_cards>=5 then
+		flush=contains_flush(selected_cards)
+	end
+	local cf = card_frequencies()
+	if flush then
+		add_all_cards_to_score(selected_cards)
+		if count(cf,5)>0 then
+			return "flush five"
+		elseif count(cf,3)>0 and count(cf,2)>0 then
+			return "flush house"
+		elseif contains_straight(cf) then
+		 if contains_royal(cards) then
+				return "royal flush"	
+			else
+				return "straight flush"
+			end
+		end
+		return "flush"
+	end
+	--non-flush decision tree
+	if count(cf,5)>0 then
+		add_all_cards_to_score(selected_cards)
+		return "five of a kind"
+	elseif count(cf,4)>0 then
+		score_cards_of_count(cf,4)
+		return "four of a kind"
+	elseif count(cf,3)>0 then
+		score_cards_of_count(cf,3)
+		if count(cf,2)>0 then
+			score_cards_of_count(cf,2)
+			return "full house"
+		end
+		return "three of a kind"
+	elseif contains_straight(cf) then
+		add_all_cards_to_score(selected_cards)
+		return "straight"
+	elseif count(cf,2)>0 then
+		score_cards_of_count(cf,2)
+		if count(cf,2)>1 then
+			return "two pair"
+		end
+		return "pair"	
+	end
+	-- high card is all that's left
+	add(scored_cards,get_highest_selected())
+	return "high card"
+end
+
+function get_highest_selected()
+	local min_order=99
+	result=nil
+	for card in all(selected_cards) do
+		if card.order < min_order then
+			result=card
+			min_order=card.order
+		end
+	end
+	return result
+end
+
+-- score sets of matching cards
+function	score_cards_of_count(cf,qty)
+	for i, q in pairs(cf) do
+		if(q==qty) score_cards_of_order(i)
+	end
+end
+
+-- score cards matched by order
+-- as a proxy for rank, just
+-- like card_frequencies()
+function score_cards_of_order(o)
+	for card in all(selected_cards) do
+		if(card.order==o) add(scored_cards,card)
 	end
 end
 
@@ -1193,7 +1245,10 @@ end
 function create_base_deck()
 	local base_deck = {}
 
-	-- Set the sorting order		
+	-- Set the sorting order, also
+	-- used as proxy for rank in 
+	-- array returned by 
+	-- card_frequencies()
 	for i, card in pairs(ranks) do
     	card.order = 14 - i
 	end
@@ -1635,9 +1690,9 @@ function buy_button_clicked()
 
 			-- Planet 
 			if special_card.type == "Planet" then	
-				money = money - special_card.price
+				money -= special_card.price
 				sfx(sfx_buy_btn_clicked_planet)
-				special_card.effect()
+				special_card:effect()
 				del(shop_options, special_card)
 			end
 		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
@@ -1719,118 +1774,18 @@ function exit_view_deck_button_clicked()
 	end
 end
 
--- Hand Detection
-function is_royal_flush()
-	if contains_royal(selected_cards) and contains_flush(selected_cards) then
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
+-- hand detection
 
-function is_straight_flush()
-	if contains_flush(selected_cards) and contains_straight(selected_cards) then	
-		add_all_cards_to_score(selected_cards)
-		return true
+-- collect card frequencies to
+-- detect matches and runs.
+-- indexed by card.order as a
+-- numeric proxy for rank.
+function card_frequencies()
+	local histogram={0,0,0,0,0,0,0,0,0,0,0,0,0}
+	for card in all(selected_cards) do
+		histogram[card.order] += 1
 	end
-	return false
-end
-
-function is_four_of_a_kind()
-	if contains_four_of_a_kind(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		for x=1, #selected_cards - 3 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank and selected_cards[x].rank == selected_cards[x + 3].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				add(scored_cards, selected_cards[x + 2])	
-				add(scored_cards, selected_cards[x + 3])	
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function is_full_house()
-	if contains_pair(selected_cards) and contains_three_of_a_kind(selected_cards) then
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
-
-function is_flush()
-	if contains_flush(selected_cards) then	
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
-
-function is_straight()
-	if contains_straight(selected_cards) then	
-		add_all_cards_to_score(selected_cards)
-		return true
-	end
-	return false
-end
-
-function is_three_of_a_kind()
-	if contains_three_of_a_kind(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		for x=1, #selected_cards - 2 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank and selected_cards[x].rank == selected_cards[x + 2].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				add(scored_cards, selected_cards[x + 2])	
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function is_two_pair()
-	if contains_two_pair(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		local times = 0
-		for x=1, #selected_cards - 1 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				times = times + 1
-				if times == 2 then
-					return true
-				end
-				x = x + 2
-			end
-		end
-	end
-	return false
-end
-
-function is_pair()
-	if contains_pair(selected_cards) then
-		sort_by_rank_decreasing(selected_cards)
-		for x=1, #selected_cards - 1 do
-			if selected_cards[x].rank == selected_cards[x + 1].rank then
-				add(scored_cards, selected_cards[x])	
-				add(scored_cards, selected_cards[x + 1])	
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function is_high_card()
-	if #selected_cards > 0 then
-		sort_by_rank_decreasing(selected_cards)
-		add(scored_cards, selected_cards[1])
-		return true
-	end
-	return false
+	return histogram
 end
 
 -- Helpers
@@ -1842,28 +1797,6 @@ function contains(table, value)
         end
     end
     return false
-end
-
-function contains_royal(cards)
-	if #cards == 5 then
-		sort_by_rank_decreasing(cards)
-		local start_order = 13
-		for x=1, #cards do
-			if start_order != cards[x].order then
-				return false
-			end
-			start_order = start_order - 1
-		end
-		return true 
-	end
-	return false
-end
-
-function contains_four_of_a_kind(cards)
-	if contains_multiple_of_a_rank(cards, 4) then
-		return true
-	end
-	return false
 end
 
 function contains_flush(cards)
@@ -1879,89 +1812,42 @@ function contains_flush(cards)
 	return false
 end
 
-function contains_straight(cards)
-	if #cards ~= 5 then
-        return false
-    end
-
-	sort_by_rank_decreasing(cards)
-
-		
-	local is_normal_straight = true
-	for x=1,#cards - 1 do
-		if cards[x].order != cards[x + 1].order + 1 then
-			is_normal_straight = false
-			break
-		end
+function contains_royal(cards)
+	-- only called if straight is
+	-- already detected, so just
+	-- return false if any 
+	-- commoners present
+ local royals={'a','k','q','j','10'}
+	for c in all(cards) do
+		if(not contains(royals,c.rank)) return false
 	end
-	if is_normal_straight then	
-		return true 
-	end
-
-	-- Check special aヌ█…5 straight (a, 5, 4, 3, 2)
-    if cards[1].rank == 'a' and
-       cards[2].rank == '5' and
-       cards[3].rank == '4' and
-       cards[4].rank == '3' and
-       cards[5].rank == '2' then
-        return true
-    end
-
-	return false
+	return true
 end
 
-function contains_three_of_a_kind(cards)
-	if contains_multiple_of_a_rank(cards, 3) then
-		return true
+function contains_straight(cf)
+	-- todo: implement shortcut joker
+	local run_goal=5
+	if #selected_cards<run_goal then
+		return false
 	end
-	return false
-end
-
-function contains_two_pair(cards)
-	if #cards >= 4 then
-		local order_arr = {}
-		for card in all(cards) do
-			add(order_arr, card.order)		
-		end
-		local times = 0
-		local first_pair = 0
-		for order_num in all(order_arr) do 
-			if count(order_arr, order_num) == 2 and order_num != first_pair then
-				times = times + 1
-				first_pair = order_num
-				if times == 2 then
-					return true
-				end
-			end
-		end
-	end
-	return false
-end
-
-function contains_pair(cards)
-	if contains_multiple_of_a_rank(cards, 2) then
-		return true
-	end
-	return false
-end
-
-function contains_multiple_of_a_rank(cards, num)
-	if #cards >= num then
-		local order_arr = {}
-		for card in all(cards) do
-			add(order_arr, card.order)		
-		end
-		for order_num in all(order_arr) do 
-			if count(order_arr, order_num) == num then
+	local run_length=0
+	-- special case for a,2,3,4,5
+	if(cf[#cf]>0) run_length=1
+	-- detect run
+	for f in all(cf) do
+		if f>0 then
+			run_length += 1
+			if run_length >= run_goal then
 				return true
 			end
+		else
+			run_length=0
 		end
 	end
 	return false
 end
 
 function add_all_cards_to_score(cards)
-	sort_by_rank_decreasing(cards)
 	for card in all(cards) do
 		add(scored_cards, card)
 	end
