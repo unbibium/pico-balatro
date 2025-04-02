@@ -251,11 +251,6 @@ card_obj=item_obj:new({
 	effect = do_nothing,
 	card_effect = do_nothing
 })
-function card_obj:reset()
-	self.selected=false
-	self.pos_x=0
-	self.pos_y=0
-end
 function card_obj:draw_at(x,y)
 	pal()
 	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
@@ -1533,8 +1528,8 @@ function draw_hand()
 		distribute_hand()
 		init_draw = false
 	end
-	for i=1,#hand do
-		hand[i]:draw()
+	for card in all(hand) do
+		card:draw()
 	end
 end
 
@@ -1571,13 +1566,13 @@ function draw_tooltips(x,y)
 end
 
 function select_hand(card)
-	if card.selected == false and card_selected_count < max_selected then 
+	if not card.selected and card_selected_count < max_selected then 
 		card.selected = true
-		card_selected_count = card_selected_count + 1
+		card_selected_count += 1
 		card:place(card.pos_x,card.pos_y-10,5)
-	elseif card.selected == true then	
+	elseif card.selected then	
 		card.selected = false
-		card_selected_count = card_selected_count - 1
+		card_selected_count -= 1
 		card:place(card.pos_x,card.pos_y+10,5)
 		if card_selected_count == 4 then error_message = "" end
 	else
@@ -1621,7 +1616,7 @@ function draw_hands_and_discards()
 end
 
 function draw_money()
-	print("M:$" .. money, 2, 120, 7)
+	print("$" .. money, 2, 120, 7)
 end
 
 function draw_round_and_score()
@@ -1808,7 +1803,7 @@ function discard_button_clicked()
 		deal_hand(shuffled_deck, card_selected_count)
 		init_draw = true
 		card_selected_count = 0
-		discards = discards - 1
+		discards -= 1
 		error_message = ""
 	end
 end
@@ -1830,7 +1825,7 @@ function reroll_button_clicked()
 		money = money - reroll_price
 		shop_options = {}
 		add_cards_to_shop()
-		reroll_price = reroll_price + 1
+		reroll_price += 1
 	elseif mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop == true and money < reroll_price then
 		sfx(sfx_error_message)
 		error_message = "You don't have enough\n money to reroll.\n Get your money up."
@@ -1840,7 +1835,7 @@ end
 function buy_button_clicked()
 	for special_card in all(shop_options) do
 		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height)
-and in_shop == true and money >= special_card.price then
+and in_shop and money >= special_card.price then
 			-- Joker
 			if special_card.type == "Joker" and #joker_cards < joker_limit then
 				money = money - special_card.price
@@ -1880,7 +1875,7 @@ and in_shop == true and money >= special_card.price then
 				special_card:effect()
 				del(shop_options, special_card)
 			end
-		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money < special_card.price then
+		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop and money < special_card.price then
 			sfx(sfx_error_message)
 			error_message = "You don't have enough\n money to buy this.\n Get your money up."
 		end
