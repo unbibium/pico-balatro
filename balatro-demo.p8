@@ -295,7 +295,7 @@ function card_obj:set_rank(r)
 end
 
 function card_obj:plus_order(d)
-	return ((self.order+d-1) % 13) + 1
+	return ((self.order-d-1) % 13) + 1
 end
 
 function card_obj:add_rank(d)
