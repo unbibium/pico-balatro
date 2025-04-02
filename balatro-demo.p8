@@ -1051,7 +1051,6 @@ function _update()
 
 	-- simpler handlers
 	if btnp(5) and not in_shop then 
-		update_selected_cards()
 		play_button_clicked()
 		discard_button_clicked()
 		use_button_clicked()
@@ -1391,7 +1390,7 @@ function create_base_deck()
 	-- array returned by 
 	-- card_frequencies()
 	for i, card in pairs(ranks) do
-    	card.order = 14 - i
+		card.order = i
 	end
 
 	-- Create deck
@@ -1506,20 +1505,26 @@ function draw_background()
     rectfill(0, 0, 128, 128, 3) 
 end
 
-function draw_hand()	
+function distribute_hand()
 	local x = 15	
 	local y = 90 
+		for card in all(hand) do
+			if card.selected then
+				card:place(x,y-10,5)
+			else
+				card:place(x,y,5)
+			end
+			x += card.width + draw_hand_gap
+		end
+end
+
+function draw_hand()	
 	if init_draw then
-		for i=1,#hand do
-			hand[i]:place(x,y)
-			hand[i]:draw()
-			x += hand[i].width + draw_hand_gap
-		end
+		distribute_hand()
 		init_draw = false
-	else
-		for i=1,#hand do
- 	   		hand[i]:draw()
-		end
+	end
+	for i=1,#hand do
+		hand[i]:draw()
 	end
 end
 
@@ -1532,6 +1537,10 @@ function draw_mouse(x, y)
 end
 
 function draw_tooltips(x,y)
+	if picked_up_item != nil then
+		return -- none of these other
+       		-- cards are targets.
+	end
 	for joker in all(joker_cards) do
 		if mouse_sprite_collision(joker.pos_x - card_width, joker.pos_y, card_width*2, card_height*2) then
 			joker:describe() return
@@ -1731,9 +1740,18 @@ function card_obj:drop_at(px,py)
 	-- todo: detect movement
 	if(self.picked_up.moved) then
 		-- todo: drop in hand and re-sort
+			error_message=tostr(py)
+		if py < 50 or my > 102 then
+			return
+		end
+		self.pos_x = px
+		self.pos_y = py
+		sort_by_x(hand)
+		distribute_hand()
 	else
 		sfx(sfx_card_select)
 		select_hand(self)
+		update_selected_cards()
 	end
 end
 
@@ -1988,8 +2006,6 @@ function contains_straight(cf)
 		return false
 	end
 	local run_length=0
-	-- special case for a,2,3,4,5
-	if(cf[#cf]>0) run_length=1
 	-- detect run
 	for f in all(cf) do
 		if f>0 then
@@ -2001,6 +2017,12 @@ function contains_straight(cf)
 			run_length=0
 		end
 	end
+	-- special case for a,2,3,4,5
+	if run_length == run_goal-1
+		and cf[1] > 0 then
+		return true
+	end
+	-- insufficient run
 	return false
 end
 
@@ -2010,13 +2032,23 @@ function add_all_cards_to_score(cards)
 	end
 end
 
+-- when cards are moved by mouse
+function sort_by_x(cards)
+	sort_by("pos_x",cards)
+end
+
+-- when cards are drawn
 function sort_by_rank_decreasing(cards)
+	sort_by("order",cards)
+end
+
+function sort_by(property,cards)
 	-- insertion sort
 	for i=2,#cards do
-		current_order = cards[i].order
+		current_order = cards[i][property]
 		current = cards[i]
 		j = i - 1
-		while (j >= 1 and current_order > cards[j].order) do
+		while (j >= 1 and current_order < cards[j][property]) do
 			cards[j + 1] = cards[j]
 			j = j - 1
 		end
