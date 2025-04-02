@@ -455,13 +455,23 @@ special_cards = {
 			description = "Multiplies your mult by 1.5",
 		}),
 		joker_obj:new({
-			name = "Times 2 Mult",
-			price = 7,
+			name = "photograph",
+			price = 5,
+			card_affected=nil,
+			card_effect=function(self,card)
+				if self.card_affected==nil and card:is_face() then
+					self.card_affected=card
+				end
+				if self.card_affected==card then
+					multiply_mult(2, card)
+					add_sparkle(34,self,9)
+				end
+			end,
 			effect = function(self)
-				multiply_mult(2, self)
+				self.card_affected=nil
 			end,
 			sprite_index = 133, 
-			description = "Multiplies your mult by 2",
+			description = "first played face card gives\nx2 mult when scored",
 		}),
 		joker_obj:new({
 			name = "Times 3 Mult",
