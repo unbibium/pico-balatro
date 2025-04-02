@@ -129,8 +129,10 @@ item_obj={
 	pos_y=0,
 	from_x=nil,
 	from_y=nil,
-	frames=0
+	frames=0,
+	picked_up=false
 }
+picked_up_item=nil
 function item_obj:new(obj) 
 	return setmetatable(obj, {
 		__index=self
@@ -167,9 +169,13 @@ function item_obj:draw()
 	-- no animation
 	self:draw_at(self.pos_x,self.pos_y)
 end
+
+-- draw at absolute position
+-- regardless of obj position
 function item_obj:draw_at(x,y)
 	spr(self.sprite_index, x, y)
 end
+
 function item_obj:moused(morex,morey)
 	morex=min(morex) -- default 0
 	morey=min(morey)
@@ -178,6 +184,53 @@ function item_obj:moused(morex,morey)
 		self.pos_y,
 		self.width+morex,
 		self.height+morey) 
+end
+
+-- called when mouse is clicked
+-- and held
+function item_obj:pickup()
+	-- record start state of
+	-- object and mouse
+	self.picked_up = {
+		src_x=self.pos_x,
+		src_y=self.pos_y,
+		mx=mx,
+		my=my,
+		offx= mx-self.pos_x,
+		offy= my-self.pos_y,
+		moved=false
+	}
+	picked_up_item=self
+end
+
+-- detect if the mouse moves
+-- more than 1 pixel between
+-- mouse_down and mouse_up
+function item_obj:detect_moved()
+	if(self.picked_up==nil) return
+	if(self.picked_up.moved) return
+	if abs(mx-self.picked_up.mx)>1
+		or abs(my-self.picked_up.my)>1
+		then
+			self.picked_up.moved=true
+	end
+end
+
+function item_obj:drop()
+	if(picked_up_item!=self) return
+	if(self.picked_up==nil) return
+	self:drop_at(
+		mx-self.picked_up.offx,
+		my-self.picked_up.offy
+	)
+	self.picked_up=nil
+	picked_up_item=nil
+end
+
+-- fallback: leave it where it lies
+function item_obj:drop_at(px,py)
+	self.pos_x=px
+	self.pos_y=py
 end
 
 -- utility functions
@@ -214,6 +267,14 @@ function card_obj:draw_at(x,y)
 	-- overlay suit
 	spr(suit_sprites[self.suit],x,y+8)
 	pal()
+end
+
+function card_obj:draw_at_mouse()
+	if (self.picked_up == nil) return
+	self:draw_at(
+		mx-self.picked_up.offx,
+		my-self.picked_up.offy
+	)
 end
 
 -- rank moving
@@ -952,6 +1013,8 @@ function scroll_cards(ms)
 	end
 end
 
+btn_frames=0
+
 function _update()
     mx = stat(32)
     my = stat(33)
@@ -971,8 +1034,23 @@ function _update()
     --register inputs
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
+	
+	-- detect mouse-down event
+	if btn(5) then
+		if btn_frames==0 then 
+			mouse_down()
+		elseif picked_up_item != nil then
+			-- detect drag action
+			picked_up_item:detect_moved()
+		end
+		btn_frames+=1
+	elseif btn_frames>0 then
+		mouse_up()
+		btn_frames=0
+	end
+
+	-- simpler handlers
 	if btnp(5) and not in_shop then 
-		hand_collision()
 		update_selected_cards()
 		play_button_clicked()
 		discard_button_clicked()
@@ -996,6 +1074,19 @@ function _update()
 		deselect_all_selected_cards()
 	end
 
+end
+
+-- handle mouse-down event
+function mouse_down()
+	hand_collision_down()
+end
+
+-- handle mouse-up event
+-- process clicks and drags
+function mouse_up()
+	if(picked_up_item == nil) return
+	picked_up_item:drop()
+	picked_up_item=nil
 end
 
 function _draw()
@@ -1434,6 +1525,9 @@ end
 
 function draw_mouse(x, y)
 	palt(0x8000)
+	if picked_up_item != nil then
+		picked_up_item:draw_at_mouse()
+	end
 	spr(192, x, y)
 end
 
@@ -1620,14 +1714,26 @@ function draw_exit_button()
 end
 
 -- Inputs
-function hand_collision()
-	-- Check if the mouse is colliding with a card in our hand 
+
+-- called when mouse-down to
+-- check if card picked up
+function hand_collision_down()
 	for card in all(hand) do
 		if card:moused() then
-				sfx(sfx_card_select)
-				select_hand(card)
+				card:pickup()
 				break
 		end
+	end
+end
+
+--function hand_collision_up()
+function card_obj:drop_at(px,py)
+	-- todo: detect movement
+	if(self.picked_up.moved) then
+		-- todo: drop in hand and re-sort
+	else
+		sfx(sfx_card_select)
+		select_hand(self)
 	end
 end
 
