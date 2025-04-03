@@ -1384,7 +1384,7 @@ function add_cards_to_shop()
 
 	-- TODO TEST If you want to test specific cards, use below 
 	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
-	--add(shop_options, get_special_card_by_name("strength", "Tarots"))
+	--add(shop_options, get_special_card_by_name("death", "Tarots"))
 end
 
 function create_view_of_deck(table)
