@@ -44,7 +44,7 @@ tarot_cards = {}
 hand_types = {
 	["flush five"] = {base_chips = 160, base_mult = 16, level = 1},
 	["flush house"] = {base_chips = 140, base_mult = 14, level = 1},
-	["fixe of a kind"] = {base_chips = 120, base_mult = 12, level = 1},
+	["five of a kind"] = {base_chips = 120, base_mult = 12, level = 1},
 	["royal flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["straight flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["four of a kind"] = {base_chips = 60, base_mult = 7, level = 1},
