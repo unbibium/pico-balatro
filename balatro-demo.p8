@@ -207,7 +207,7 @@ end
 -- more than 1 pixel between
 -- mouse_down and mouse_up
 function item_obj:detect_moved()
-	if(self.picked_up==nil) return
+	if(not self.picked_up) return
 	if(self.picked_up.moved) return
 	if abs(mx-self.picked_up.mx)>1
 		or abs(my-self.picked_up.my)>1
@@ -218,7 +218,7 @@ end
 
 function item_obj:drop()
 	if(picked_up_item!=self) return
-	if(self.picked_up==nil) return
+	if(not self.picked_up) return
 	self:drop_at(
 		mx-self.picked_up.offx,
 		my-self.picked_up.offy
@@ -270,7 +270,7 @@ function card_obj:draw_at(x,y)
 end
 
 function card_obj:draw_at_mouse()
-	if (self.picked_up == nil) return
+	if (not self.picked_up) return
 	self:draw_at(
 		mx-self.picked_up.offx,
 		my-self.picked_up.offy
@@ -295,7 +295,7 @@ function card_obj:set_rank(r)
 end
 
 function card_obj:plus_order(d)
-	return ((self.order+d-1) % 13) + 1
+	return ((self.order-d-1) % 13) + 1
 end
 
 function card_obj:add_rank(d)
@@ -1061,8 +1061,8 @@ end
 btn_frames=0
 
 function _update()
-    mx = stat(32)
-    my = stat(33)
+	mx = stat(32)
+	my = stat(33)
  -- check score_hand animation
 	if costatus(animation)!='dead' then
 		coresume(animation)
@@ -1084,7 +1084,7 @@ function _update()
 	if btn(5) then
 		if btn_frames==0 then 
 			mouse_down()
-		elseif picked_up_item != nil then
+		elseif picked_up_item then
 			-- detect drag action
 			picked_up_item:detect_moved()
 		end
@@ -1128,7 +1128,7 @@ end
 -- handle mouse-up event
 -- process clicks and drags
 function mouse_up()
-	if(picked_up_item == nil) return
+	if(not picked_up_item) return
 	picked_up_item:drop()
 	picked_up_item=nil
 end
@@ -1575,14 +1575,14 @@ end
 
 function draw_mouse(x, y)
 	palt(0x8000)
-	if picked_up_item != nil then
+	if picked_up_item then
 		picked_up_item:draw_at_mouse()
 	end
 	spr(192, x, y)
 end
 
 function draw_tooltips(x,y)
-	if picked_up_item != nil then
+	if picked_up_item  then
 		return -- none of these other
        		-- cards are targets.
 	end
@@ -2101,24 +2101,6 @@ function sort_by(property,cards)
 	end
 end
 
-function get_rank_add(rank,inc)
-	idx=find_rank_index(rank)
-	result=((idx+inc-1)%#ranks)+1
-	return result
-end
-
-function find_rank_index(rank)
-	if type(rank) == "string" then
-		for i,r in pairs(ranks) do
-			if(r.rank==rank) return i
-		end
-	else
-		for i,r in pairs(ranks) do
-			if(r==rank) return i
-		end
-	end
-end
-
 function get_special_card_by_name(name, type)
 	for special_card_type, v in pairs(special_cards) do		
 		if special_card_type == type then
@@ -2135,7 +2117,6 @@ end
 function change_to_suit(suit, tarot)
 	if #selected_cards <= 3 then
 		for card in all(selected_cards) do
-			card.sprite_index = card.rank.sprite_index
 			card.suit = suit 
 			card.selected = false
 			card.pos_y = card.pos_y + 10
