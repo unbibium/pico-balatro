@@ -2,6 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 -- Globals
+debugmouse=false
 screen_width = 128
 screen_height = 128
 card_width = 8
@@ -15,7 +16,6 @@ sparkles = {}
 max_selected = 5
 card_selected_count = 0
 suits = {'h', 'd', 'c', 's'}
-sprite_index_lookup_table = {}
 suit_colors = {s=5,c=12,h=8,d=9}
 suit_sprites = {s=16,c=17,h=18,d=19}
 ranks = {
@@ -170,6 +170,15 @@ end
 function item_obj:draw_at(x,y)
 	spr(self.sprite_index, x, y)
 end
+function item_obj:moused(morex,morey)
+	morex=min(morex) -- default 0
+	morey=min(morey)
+	return mouse_sprite_collision(
+		self.pos_x,
+		self.pos_y,
+		self.width+morex,
+		self.height+morey) 
+end
 
 -- utility functions
 function do_nothing()
@@ -205,6 +214,32 @@ function card_obj:draw_at(x,y)
 	-- overlay suit
 	spr(suit_sprites[self.suit],x,y+8)
 	pal()
+end
+
+-- rank moving
+function card_obj:set_rank_by_order(o)
+	for r in all(ranks) do
+		if r.order == o then
+			return self:set_rank(r)
+		end
+	end
+	assert(false) -- rank not found
+end
+
+function card_obj:set_rank(r)
+	self.rank = r.rank
+	self.sprite_index = r.sprite_index
+	self.order = r.order
+	self.chips = r.base_chips 
+end
+
+function card_obj:plus_order(d)
+	return ((self.order+d-1) % 13) + 1
+end
+
+function card_obj:add_rank(d)
+	new_order=self:plus_order(d)
+	self:set_rank_by_order(new_order)
 end
 
 function card_obj:is_face()
@@ -604,11 +639,8 @@ special_cards = {
 			name = "strength",
 			price = 2,
 			effect = card_enhancement(2,function(card,self)
-				local higher_rank = find_1_rank_higher(card.rank)
-				card.sprite_index = sprite_index_lookup_table[higher_rank]
-				card.rank = higher_rank 
-				card.order = find_rank_order(higher_rank)
-				card.chips = find_rank_base_chips(higher_rank)
+				card:add_rank(1)
+				sort_by_rank_decreasing(hand)
 			end),
 			sprite_index = 160,
 			description = "increases the rank of two\nselected cards by 1",
@@ -909,16 +941,34 @@ function _init()
 	sfx(sfx_load_game)
 end
 
+-- only run if debugmouse=true
+-- modify cards when scrolled
+function scroll_cards(ms)
+	for c in all(hand) do
+		if c:moused() then
+			c:add_rank(ms)
+			return
+		end
+	end
+end
+
 function _update()
+    mx = stat(32)
+    my = stat(33)
  -- check score_hand animation
 	if costatus(animation)!='dead' then
 		coresume(animation)
 		return
 	end
 
+ if debugmouse then
+   local ms=stat(36)
+   if ms!=0 then
+   	scroll_cards(ms)
+   end
+ end
+ 	
     --register inputs
-    mx = stat(32)
-    my = stat(33)
     -- Check mouse buttons
 	-- btn(5) left click, btn(4) right click
 	if btnp(5) and not in_shop then 
@@ -1259,8 +1309,8 @@ function create_base_deck()
 			card_info = card_obj:new({
 				rank = ranks[x].rank,
 				suit = suits[y],
+				sprite_index = ranks[x].sprite_index,
 				chips = ranks[x].base_chips,
-				sprite_index = sprite_index_lookup_table[ranks[x]["rank"]],
 				order = ranks[x].order,
 			})
 			add(base_deck, card_info)
@@ -1308,7 +1358,7 @@ end
 function build_sprite_index_lookup_table()
 	-- Create deck
 	for x=1,#ranks do
-		sprite_index_lookup_table[ranks[x]["rank"]] = x-1
+		ranks[x].sprite_index = x-1 
 	end
 end
 
@@ -1334,7 +1384,7 @@ function add_cards_to_shop()
 
 	-- TODO TEST If you want to test specific cards, use below 
 	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
-	--add(shop_options, get_special_card_by_name("the empress", "Tarots"))
+	--add(shop_options, get_special_card_by_name("death", "Tarots"))
 end
 
 function create_view_of_deck(table)
@@ -1573,7 +1623,7 @@ end
 function hand_collision()
 	-- Check if the mouse is colliding with a card in our hand 
 	for card in all(hand) do
-		if mouse_sprite_collision(card.pos_x,card.pos_y,card.width,card.height) then
+		if card:moused() then
 				sfx(sfx_card_select)
 				select_hand(card)
 				break
@@ -1655,7 +1705,8 @@ end
 
 function buy_button_clicked()
 	for special_card in all(shop_options) do
-		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop == true and money >= special_card.price then
+		if mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height)
+and in_shop == true and money >= special_card.price then
 			-- Joker
 			if special_card.type == "Joker" and #joker_cards < joker_limit then
 				money = money - special_card.price
@@ -1867,29 +1918,20 @@ function sort_by_rank_decreasing(cards)
 	end
 end
 
-function find_1_rank_higher(rank)
-	if rank == 'a' then
-		return '2'
-	end
-	for x=1,#ranks do	
-		if ranks[x].rank == rank then
-			return ranks[x-1].rank
-		end
-	end
+function get_rank_add(rank,inc)
+	idx=find_rank_index(rank)
+	result=((idx+inc-1)%#ranks)+1
+	return result
 end
 
-function find_rank_order(rank)
-	for x=1,#ranks do	
-		if ranks[x].rank == rank then
-			return ranks[x].order
+function find_rank_index(rank)
+	if type(rank) == "string" then
+		for i,r in pairs(ranks) do
+			if(r.rank==rank) return i
 		end
-	end
-end
-
-function find_rank_base_chips(rank)
-	for x=1,#ranks do	
-		if ranks[x].rank == rank then
-			return ranks[x].base_chips
+	else
+		for i,r in pairs(ranks) do
+			if(r==rank) return i
 		end
 	end
 end
@@ -1910,7 +1952,7 @@ end
 function change_to_suit(suit, tarot)
 	if #selected_cards <= 3 then
 		for card in all(selected_cards) do
-			card.sprite_index = sprite_index_lookup_table[card.rank]
+			card.sprite_index = card.rank.sprite_index
 			card.suit = suit 
 			card.selected = false
 			card.pos_y = card.pos_y + 10
