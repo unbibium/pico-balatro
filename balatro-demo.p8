@@ -1777,17 +1777,15 @@ function hand_collision_down()
 	for card in all(hand) do
 		if card:moused() then
 				card:pickup()
+				card.drop_at=hand_collision_up
 				break
 		end
 	end
 end
 
---function hand_collision_up()
-function card_obj:drop_at(px,py)
-	-- todo: detect movement
+-- drop a dragged card or click
+function hand_collision_up(self,px,py)
 	if(self.picked_up.moved) then
-		-- todo: drop in hand and re-sort
-			error_message=tostr(py)
 		if py < 50 or my > 102 then
 			return
 		end
@@ -1795,7 +1793,7 @@ function card_obj:drop_at(px,py)
 		self.pos_y = py
 		sort_by_x(hand)
 		distribute_hand()
-	else
+	else -- click, not drop
 		sfx(sfx_card_select)
 		select_hand(self)
 		update_selected_cards()
