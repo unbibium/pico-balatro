@@ -1193,6 +1193,8 @@ end
 -- yield commands can be used
 function score_hand()
 	pause(5) -- wait for sfx
+ -- card are processed left-to-right
+	sort_by_x(scored_cards)
 	-- Score cards 
 	for card in all(scored_cards) do
 		add_chips( card.chips + card.effect_chips, card )
