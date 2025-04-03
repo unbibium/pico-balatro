@@ -1,8 +1,11 @@
 pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
+-- main program
 -- Globals
 debugmouse=false
+test_joker=nil
+test_tarot=nil
 screen_width = 128
 screen_height = 128
 card_width = 8
@@ -888,26 +891,6 @@ function bigscore:greater_or_equal(other)
 	end
 end
 
--- unit tests for score stuff
-function assert_score(actual,expected)
-	if actual:str() != expected then
-		cls()
-		print("expected \#3"..expected)
-		print("     was \#8"..actual:str())
-		assert(false)
-	end
-end
-
-assert_score( (bigscore:new(300) + 300), "600" )
-assert_score( (bigscore:new(300) + bigscore:new(300)), "600" )
-assert_score( (bigscore:new(300) * 1.5), "450" )
-assert_score( (bigscore:new(300) * bigscore:new(2)), "600" )
-assert_score( (bigscore:new(300) * 300), "90000" )
-assert_score( (bigscore:new(300) * bigscore:new(300)), "90000" )
-assert_score( (bigscore:new(300) * 300 * 300), "27000000" )
-assert_score( (bigscore:new(300) * 300 * 300 * 300), "naneinf" )
-assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
-
 -- deck sprite stuff
 
 deck_sprite_index = 47
@@ -1483,8 +1466,11 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
-	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
-	--add(shop_options, get_special_card_by_name("the empress", "Tarots"))
+	if test_joker then
+		add(shop_options, get_special_card_by_name(test_joker, "Jokers"))
+	elseif test_tarot then
+		add(shop_options, get_special_card_by_name(test_tarot, "Tarots"))
+	end
 end
 
 function create_view_of_deck(table)
@@ -2146,6 +2132,29 @@ function test_print_table(table)
 	end
 	printh(text)
 end
+
+-->8
+-- unit tests
+
+-- unit tests for score stuff
+function assert_score(actual,expected)
+	if actual:str() != expected then
+		cls()
+		print("expected \#3"..expected)
+		print("     was \#8"..actual:str())
+		assert(false)
+	end
+end
+
+assert_score( (bigscore:new(300) + 300), "600" )
+assert_score( (bigscore:new(300) + bigscore:new(300)), "600" )
+assert_score( (bigscore:new(300) * 1.5), "450" )
+assert_score( (bigscore:new(300) * bigscore:new(2)), "600" )
+assert_score( (bigscore:new(300) * 300), "90000" )
+assert_score( (bigscore:new(300) * bigscore:new(300)), "90000" )
+assert_score( (bigscore:new(300) * 300 * 300), "27000000" )
+assert_score( (bigscore:new(300) * 300 * 300 * 300), "naneinf" )
+assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
 
 __gfx__
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb77777ccd77777ee877777766
