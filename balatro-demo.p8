@@ -1220,7 +1220,7 @@ function check_hand_type()
 		elseif count(cf,3)>0 and count(cf,2)>0 then
 			return "flush house"
 		elseif contains_straight(cf) then
-		 if contains_royal(cards) then
+		 if contains_royal(selected_cards) then
 				return "royal flush"	
 			else
 				return "straight flush"
@@ -1382,24 +1382,27 @@ function create_base_deck()
 	-- used as proxy for rank in 
 	-- array returned by 
 	-- card_frequencies()
-	for i, card in pairs(ranks) do
-		card.order = i
+	for i, rank in pairs(ranks) do
+		rank.order = i
 	end
 
 	-- Create deck
-	for x=1,#ranks do
-		for y=1,#suits do
-			card_info = card_obj:new({
-				rank = ranks[x].rank,
-				suit = suits[y],
-				sprite_index = ranks[x].sprite_index,
-				chips = ranks[x].base_chips,
-				order = ranks[x].order,
-			})
-			add(base_deck, card_info)
+	for rank in all(ranks) do
+		for suit in all(suits) do
+			add(base_deck, make_card(rank,suit))
 		end
 	end
 	return base_deck
+end
+
+function make_card(rank,suit)
+	return	card_obj:new({
+				rank = rank.rank,
+				suit = suit,
+				sprite_index = rank.sprite_index,
+				chips = rank.base_chips,
+				order = rank.order,
+			})
 end
 
 function shuffle_deck(deck)
@@ -2155,6 +2158,62 @@ assert_score( (bigscore:new(300) * bigscore:new(300)), "90000" )
 assert_score( (bigscore:new(300) * 300 * 300), "27000000" )
 assert_score( (bigscore:new(300) * 300 * 300 * 300), "naneinf" )
 assert_score( (bigscore:new(300) + naneinf:new(300)), "naneinf" )
+
+-- hand test functions
+base_deck=create_base_deck()
+function make_hand(source)
+	local result={}
+	for rs in all(split(source)) do
+		local rankname=sub(rs,1,#rs-1)
+		local rank=get_rank(rankname)
+		local suit=sub(rs,#rs)
+		add(result,make_card(rank,suit))
+	end
+	return result
+end
+
+function get_rank(rankname)
+	for r in all(ranks) do
+		if(r.rank==rankname) return r
+ end
+	assert(false) -- not found
+end
+
+function assert_hand_eq(hand_source,expected_name)
+	-- hand is global
+	selected_cards=make_hand(hand_source)
+	local hand_type = check_hand_type()
+	if hand_type != expected_name then
+		cls()
+		print(hand_source)
+		print("expected: " .. expected_name)
+		print("     was: " .. hand_type)
+		assert(false)
+	end
+end
+
+-- do
+assert_hand_eq("ac,kc,qc,jc,10c", "royal flush")
+assert_hand_eq("ac,2c,3c,4c,5c", "straight flush")
+assert_hand_eq("5c,2c,3c,4c,ac", "straight flush")
+assert_hand_eq("6c,2c,3c,4c,5c", "straight flush")
+assert_hand_eq("ac,kc,qc,jc,5c", "flush")
+assert_hand_eq("ac,kc,jc,jc,5c", "flush")
+assert_hand_eq("ac,ac,ac,ac,ac", "flush five")
+assert_hand_eq("ac,ac,8c,8c,8c", "flush house")
+assert_hand_eq("ac,as,ah,ad,ac", "five of a kind")
+assert_hand_eq("ah,2c,3c,4c,5c", "straight")
+assert_hand_eq("5c,2h,3c,4c,ac", "straight")
+assert_hand_eq("6c,2c,3h,4c,5c", "straight")
+assert_hand_eq("ac", "high card")
+assert_hand_eq("ac,as", "pair")
+assert_hand_eq("kc,kh,9s,9h", "two pair")
+assert_hand_eq("kc,9s,kh,9h", "two pair")
+assert_hand_eq("kc,kh,9s,9h,9d", "full house")
+assert_hand_eq("kc,9s,9h,9d,ks", "full house")
+assert_hand_eq("ac,as,9c,8c,2h", "pair")
+assert_hand_eq("ah,as,ad", "three of a kind")
+assert_hand_eq("ah,as,ad,ac", "four of a kind")
 
 __gfx__
 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb77777ccd77777ee877777766
