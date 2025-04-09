@@ -383,13 +383,19 @@ special_cards = {
 			description = "adds double the rank of lowest\nranked card held in hand\nto mult"
 		}),
 		joker_obj:new({
-			name = "Add Random Mult",
+			name = "misprint",
 			price = 4,
 			effect = function(self)
 				add_mult( flr(rnd(23), self) )
 			end,
 			sprite_index = 131, 
-			description = "adds a random amount of mult.\nlowest being 0, highest being 25",
+			description=function(self)
+				glitch=""
+				if(rnd(10)<2)glitch..=" "
+				if(rnd(10)<2)glitch..="\f8"
+				return glitch.."adds +"..
+				  tostr(flr(rnd(23))).." mult"
+			end
 		}),
 		joker_obj:new({
 			name = "Times 1.5 Mult",
@@ -526,7 +532,7 @@ special_cards = {
 			description = "Adds 90 to your chips",
 		}),
 		joker_obj:new({
-			name = "Add Random Chips",
+			name = "misprint chips",
 			price = 5,
 			effect = function(self)
 				local chip_options = {}
@@ -539,7 +545,15 @@ special_cards = {
 				add_chips(rnd(chip_options),self)
 			end,
 			sprite_index = 138, 
-			description = "adds a random amount of chips.\nlowest being 0, highest being 150",
+			description = function(self)
+				local random_amt=flr(rnd(16))*10
+				glitch=""
+				if(rnd(10)<2)glitch..=" "
+				if(rnd(10)<1)glitch..="\fc"
+				return "adds "..
+				  tostr(random_amt)..
+						" chips"
+				end
 		}),
 		joker_obj:new({
 			name="pareidolia",
@@ -1418,6 +1432,7 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
+	add(shop_options, get_special_card_by_name("misprint chips", "Jokers"))
 	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
 	--add(shop_options, get_special_card_by_name("death", "Tarots"))
 end
