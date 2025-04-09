@@ -211,8 +211,10 @@ function card_obj:draw_at(x,y)
 	spr(self.bgtile,x,y,1,2)
 	-- overlay rank
 	spr(self.sprite_index, x, y)
-	-- overlay suit
-	spr(suit_sprites[self.suit],x,y+8)
+	-- if not wild, overlay suit
+ if self.bgtile != 44 then
+		spr(suit_sprites[self.suit],x,y+8)
+	end
 	pal()
 end
 
