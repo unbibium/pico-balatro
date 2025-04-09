@@ -247,8 +247,16 @@ function card_obj:is_face()
 	return contains({'k','j','q'},self.rank)
 end
 
+function card_obj:matches_suit(other)
+	-- 44=wild card
+	if(other.bgtile==44)return true
+	-- compare normally
+	return self:is_suit(other.suit)
+end
+
 function card_obj:is_suit(target)
-	-- todo: implement smeared joker
+	-- 44=wild card
+	if(self.bgtile==44)return true
 	if has_joker('smeared joker') then
 		if target=='s' or target=='c' then
 			return self.suit=='s' or self.suit=='c'
@@ -558,7 +566,7 @@ special_cards = {
 		joker_obj:new({
 			name="four fingers",
 			price=7,
-			-- effect in card_obj:is_suit
+			-- effect in contains_flush
 			sprite_index=183,
 			description = "all flushes and straights can\nbe made with 4 cards."
 		}),
@@ -662,6 +670,17 @@ special_cards = {
 			end),
 			sprite_index = 170,
 			description = "converts 1 card into a\nsteel card, which grants x1.5 mult \nif card is left in hand",
+		}),
+		tarot_obj:new({
+			name = "the lovers",
+			price = 2,
+			effect = card_enhancement(1,function(card,self)
+				card.bgtile = 44
+				card.when_held_in_hand = do_nothing
+				card.when_held_at_end = do_nothing
+			end),
+			sprite_index = 169,
+			description = "converts 1 card into a\nwild card, which matches\nevery suit",
 		}),
 		tarot_obj:new({
 			name = "strength",
@@ -1418,6 +1437,7 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
+	add(shop_options, get_special_card_by_name("the lovers", "Tarots"))
 	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
 	--add(shop_options, get_special_card_by_name("death", "Tarots"))
 end
@@ -1890,11 +1910,13 @@ function contains_flush(cards)
 	local run_goal=5
 	if(has_joker("four fingers"))run_goal=4
 	if(#cards<run_goal) return
-	local mysuit=cards[1].suit
+	local first=cards[1]
+	local ct=0
 	for card in all(cards) do 
-		if(not card:is_suit(mysuit))return false
+		if(card:matches_suit(first)) ct+=1
+		if(ct>=run_goal)return true
 	end
-	return true
+	return false
 end
 
 function contains_royal(cards)
