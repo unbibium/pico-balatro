@@ -153,6 +153,7 @@ function item_obj:reset()
 	self.pos_y=deck_sprite_pos_y
 end
 function item_obj:draw()
+	if(picked_up_item==self)return
 	-- animation
 	if self.frames > 0 then
 		self.frames -= 1
