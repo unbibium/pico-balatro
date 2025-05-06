@@ -866,13 +866,15 @@ special_cards = {
 					return
 				end
 				sort_by_x(selected_cards)
-				local left=selected_cards[1]
-				local right=selected_cards[2]
+				-- right card is copied
+				local src=selected_cards[2]
+				-- left card is replaced
+				local dst=selected_cards[1]
 				-- todo: flip animation?
-				copy_card(left,right)
+				copy_card(src,dst)
 				-- unselect cards
-				select_hand(left)
-				select_hand(right)
+				select_hand(src)
+				select_hand(dst)
 				del(tarot_cards, tarot)
 			end,
 			sprite_index = 175,
