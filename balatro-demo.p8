@@ -753,7 +753,7 @@ special_cards = {
 				card.when_held_in_hand = do_nothing
 				card.when_held_at_end = do_nothing
 			end),
-			sprite_index = 169,
+			sprite_index = 159,
 			description = "converts 1 card into a\nwild card, which matches\nevery suit",
 		}),
 		tarot_obj:new({
@@ -842,11 +842,11 @@ special_cards = {
 						del(hand, card)
 					end
 					deal_hand(shuffled_deck, #selected_cards)
+					clear(selected_cards)
 					card_selected_count = 0
 					del(tarot_cards, tarot)
 					init_draw = true
 					sort_by_rank_decreasing(hand)
-					selected_cards = {}
 					hand_type_text = ""
 				else
 					sfx(sfx_error_message)
@@ -855,6 +855,30 @@ special_cards = {
 			end,
 			sprite_index = 168,
 			description = "Deletes two selected\ncards from the deck",
+		}),
+		tarot_obj:new({
+			name = "death",
+			price = 2,
+			effect = function(tarot)
+				if #selected_cards != 2 then
+					sfx(sfx_error_message)
+					error_message = "must select exactly\ntwo cards"
+					return
+				end
+				sort_by_x(selected_cards)
+				-- right card is copied
+				local src=selected_cards[2]
+				-- left card is replaced
+				local dst=selected_cards[1]
+				-- todo: flip animation?
+				copy_card(src,dst)
+				-- unselect cards
+				select_hand(src)
+				select_hand(dst)
+				del(tarot_cards, tarot)
+			end,
+			sprite_index = 175,
+			description = "select 2 cards, convert\nthe left card into the\nright card"
 		})
 	}
 }
@@ -2017,6 +2041,29 @@ function exit_view_deck_button_clicked()
 	end
 end
 
+-- for death card
+-- copy all properties, it's
+-- easier than chasing down
+-- all the copies of the object
+function copy_card(from,to)
+	for k in all({
+		"rank",
+		"suit",
+		"sprite_index",
+		"bgtile",
+		"chips",
+		"order",
+		"mult",
+		"effect_chips",
+		"when_held_in_hand",
+		"when_held_at_end",
+		"effect",
+		"card_effect"
+	}) do
+		to[k]=from[k]
+	end
+end
+
 -- hand detection
 
 -- collect card frequencies to
@@ -2268,14 +2315,14 @@ ccc7c7ccc7c7c7c7c777c777cc77777cccc777778c88c8cccc77777cc777c777ccc888887c788888
 ccc777ccc777c777c7c7c7c7cccc7c7ccc77777788888888cc7c7c7cc7c7c7c7cc888888cc8888880000000000000000000000000000000000000000f55ff5ff
 ccccccccccccccccc7c7c7c7cccc777cc7777777ccccc8c8cc7c7c7cc777c777c8888888c88888880000000000000000000000000000000000000000f55f55ff
 ccccccccccccccccc777c777cccccccc77777777ccccc888cc77777ccccccccc88888888888888880000000000000000000000000000000000000000ffffffff
-f777f7778888888f9999999fcccccccfdddddddfffffffffffffffffafafaaaf777f777fffffffffffffffff0000000000000000000000000000000000000000
-f7f7f7f78f8f8f8f9f9f9f9fcfcfcfcfdfdfdfdfff8888ffffccccfffaffffaf7f7f7f7ffaaaa77ff666677f0000000000000000000000000000000000000000
-f7f7f7f78888888f9999999fcccccccfdddddddfff8ff8ffffcffcffafafaaff777f777ffaaaaa7ff666667f0000000000000000000000000000000000000000
-f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffffffaffffffffffffaaaaaaff666666f0000000000000000000000000000000000000000
-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555fffaaaaaaff666666f0000000000000000000000000000000000000000
-f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddffff9aaaaaff566666f0000000000000000000000000000000000000000
-f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddffff99aaaaff556666f0000000000000000000000000000000000000000
-f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfffffffffffffffffff0000000000000000000000000000000000000000
+f777f7778888888f9999999fcccccccfdddddddfffffffffffffffffafafaaaf777f777fffffffffffffffff00000000000000000000000000000000ffffffff
+f7f7f7f78f8f8f8f9f9f9f9fcfcfcfcfdfdfdfdfff8888ffffccccfffaffffaf7f7f7f7ffaaaa77ff666677f00000000000000000000000000000000ff0009ff
+f7f7f7f78888888f9999999fcccccccfdddddddfff8ff8ffffcffcffafafaaff777f777ffaaaaa7ff666667f00000000000000000000000000000000f0fff9ff
+f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffffffaffffffffffffaaaaaaff666666f00000000000000000000000000000000fffff9ff
+ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555fffaaaaaaff666666f00000000000000000000000000000000fffff9ff
+f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddffff9aaaaaff566666f00000000000000000000000000000000fffff9ff
+f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddffff99aaaaff556666f00000000000000000000000000000000fffff9ff
+f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfffffffffffffffffff00000000000000000000000000000000fffff9ff
 00000000788788777779777777ccc777777d7777777777777777777f777777770000000000000000000000000000000000000000000000000000000000000000
 0000000088a8a88777c9c777773c377777cdc777778787777067706f77f7f7770000000000000000000000000000000000000000000000000000000000000000
 000000008888888779999977ccccccc77ddddd77778787777067706f77f7f7f70000000000000000000000000000000000000000000000000000000000000000
