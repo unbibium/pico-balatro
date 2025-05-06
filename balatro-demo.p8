@@ -252,17 +252,19 @@ card_obj=item_obj:new({
 	effect = do_nothing,
 	card_effect = do_nothing
 })
-function card_obj:draw_at(x,y)
+function card_obj:draw_at(x,y,z)
 	pal()
-	rectfill(x-1,y-1,x-2+self.width,y-2+self.height,0)
+	if(z==nil) z=0
+	-- draw shadow
+	rectfill(x+1,y+1,x+self.width,y+self.height,1)
 	palt(11,true)
 	pal(8,suit_colors[self.suit])
-	spr(self.bgtile,x,y,1,2)
+	spr(self.bgtile,x-z,y-z,1,2)
 	-- overlay rank
-	spr(self.sprite_index, x, y)
+	spr(self.sprite_index, x-z, y-z)
 	-- if not wild, overlay suit
  if self.bgtile != 44 then
-		spr(suit_sprites[self.suit],x,y+8)
+		spr(suit_sprites[self.suit],x-z,y+8-z)
 	end
 	pal()
 end
@@ -271,7 +273,8 @@ function card_obj:draw_at_mouse()
 	if (not self.picked_up) return
 	self:draw_at(
 		mx-self.picked_up.offx,
-		my-self.picked_up.offy
+		my-self.picked_up.offy,
+		1
 	)
 end
 
