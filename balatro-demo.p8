@@ -1569,7 +1569,7 @@ function add_cards_to_shop()
 	add(shop_options, random_tarot)
 
 	-- TODO TEST If you want to test specific cards, use below 
-	add(shop_options, get_special_card_by_name("splash", "Jokers"))
+	--add(shop_options, get_special_card_by_name("splash", "Jokers"))
 	--add(shop_options, get_special_card_by_name("strength", "Tarots"))
 end
 
