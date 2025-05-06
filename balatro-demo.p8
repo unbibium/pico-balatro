@@ -153,6 +153,7 @@ function item_obj:reset()
 	self.pos_y=deck_sprite_pos_y
 end
 function item_obj:draw()
+	if(picked_up_item==self)return
 	-- animation
 	if self.frames > 0 then
 		self.frames -= 1
@@ -264,8 +265,10 @@ function card_obj:draw_at(x,y)
 	spr(self.bgtile,x,y,1,2)
 	-- overlay rank
 	spr(self.sprite_index, x, y)
-	-- overlay suit
-	spr(suit_sprites[self.suit],x,y+8)
+	-- if not wild, overlay suit
+ if self.bgtile != 44 then
+		spr(suit_sprites[self.suit],x,y+8)
+	end
 	pal()
 end
 
@@ -308,8 +311,16 @@ function card_obj:is_face()
 	return contains({'k','j','q'},self.rank)
 end
 
+function card_obj:matches_suit(other)
+	-- 44=wild card
+	if(other.bgtile==44)return true
+	-- compare normally
+	return self:is_suit(other.suit)
+end
+
 function card_obj:is_suit(target)
-	-- todo: implement smeared joker
+	-- 44=wild card
+	if(self.bgtile==44)return true
 	if has_joker('smeared joker') then
 		if target=='s' or target=='c' then
 			return self.suit=='s' or self.suit=='c'
@@ -629,7 +640,7 @@ special_cards = {
 		joker_obj:new({
 			name="four fingers",
 			price=7,
-			-- effect in card_obj:is_suit
+			-- effect in contains_flush
 			sprite_index=183,
 			description = "all flushes and straights can\nbe made with 4 cards."
 		}),
@@ -733,6 +744,17 @@ special_cards = {
 			end),
 			sprite_index = 170,
 			description = "converts 1 card into a\nsteel card, which grants x1.5 mult \nif card is left in hand",
+		}),
+		tarot_obj:new({
+			name = "the lovers",
+			price = 2,
+			effect = card_enhancement(1,function(card,self)
+				card.bgtile = 44
+				card.when_held_in_hand = do_nothing
+				card.when_held_at_end = do_nothing
+			end),
+			sprite_index = 169,
+			description = "converts 1 card into a\nwild card, which matches\nevery suit",
 		}),
 		tarot_obj:new({
 			name = "strength",
@@ -2024,11 +2046,13 @@ function contains_flush(cards)
 	local run_goal=5
 	if(has_joker("four fingers"))run_goal=4
 	if(#cards<run_goal) return
-	local mysuit=cards[1].suit
+	local first=cards[1]
+	local ct=0
 	for card in all(cards) do 
-		if(not card:is_suit(mysuit))return false
+		if(card:matches_suit(first)) ct+=1
+		if(ct>=run_goal)return true
 	end
-	return true
+	return false
 end
 
 function contains_royal(cards)
@@ -2236,14 +2260,14 @@ cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb
 7788877778888877775999577778777778777888777787777777887700000000ccccc77cccc7c77c777c77777777778777777c777777797755888855488d8584
 7777777778777877777599577777777778787778777877777777787700000000c77cc77c77c7c77c777777777777788777777c777777797755855855488d8584
 7777777778888877777599577778777778777888778888877788887700000000cccccccc77c7cccc777c77777777777777777777777777775555555566666666
-ccccccccccccccccc777c777777ccccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
-ccccccccccccccccc7c7c7c77c7ccccccccccccc8c88c8cc7c7c7c7cc7c7c7c7cccccccc7c7ccccc000000000000000000000000000000000000000000000000
-ccc777ccc777c777c777c77777777ccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
-ccc7c7ccc7c7c7c7cccccccccc7c7ccccccc7777888888cccccccccccccccccccccc888877cc8888000000000000000000000000000000000000000000000000
-ccc7c7ccc7c7c7c7c777c777cc77777cccc777778c88c8cccc77777cc777c777ccc888887c788888000000000000000000000000000000000000000000000000
-ccc777ccc777c777c7c7c7c7cccc7c7ccc77777788888888cc7c7c7cc7c7c7c7cc888888cc888888000000000000000000000000000000000000000000000000
-ccccccccccccccccc7c7c7c7cccc777cc7777777ccccc8c8cc7c7c7cc777c777c8888888c8888888000000000000000000000000000000000000000000000000
-ccccccccccccccccc777c777cccccccc77777777ccccc888cc77777ccccccccc8888888888888888000000000000000000000000000000000000000000000000
+ccccccccccccccccc777c777777ccccccccccccc888888cc7777777cc777c777cccccccc777ccccc0000000000000000000000000000000000000000ffffffff
+ccccccccccccccccc7c7c7c77c7ccccccccccccc8c88c8cc7c7c7c7cc7c7c7c7cccccccc7c7ccccc0000000000000000000000000000000000000000f55f55ff
+ccc777ccc777c777c777c77777777ccccccccccc888888cc7777777cc777c777cccccccc777ccccc0000000000000000000000000000000000000000f5ff55ff
+ccc7c7ccc7c7c7c7cccccccccc7c7ccccccc7777888888cccccccccccccccccccccc888877cc88880000000000000000000000000000000000000000f5ff55ff
+ccc7c7ccc7c7c7c7c777c777cc77777cccc777778c88c8cccc77777cc777c777ccc888887c7888880000000000000000000000000000000000000000f55ff5ff
+ccc777ccc777c777c7c7c7c7cccc7c7ccc77777788888888cc7c7c7cc7c7c7c7cc888888cc8888880000000000000000000000000000000000000000f55ff5ff
+ccccccccccccccccc7c7c7c7cccc777cc7777777ccccc8c8cc7c7c7cc777c777c8888888c88888880000000000000000000000000000000000000000f55f55ff
+ccccccccccccccccc777c777cccccccc77777777ccccc888cc77777ccccccccc88888888888888880000000000000000000000000000000000000000ffffffff
 f777f7778888888f9999999fcccccccfdddddddfffffffffffffffffafafaaaf777f777fffffffffffffffff0000000000000000000000000000000000000000
 f7f7f7f78f8f8f8f9f9f9f9fcfcfcfcfdfdfdfdfff8888ffffccccfffaffffaf7f7f7f7ffaaaa77ff666677f0000000000000000000000000000000000000000
 f7f7f7f78888888f9999999fcccccccfdddddddfff8ff8ffffcffcffafafaaff777f777ffaaaaa7ff666667f0000000000000000000000000000000000000000
