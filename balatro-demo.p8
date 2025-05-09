@@ -152,9 +152,13 @@ function item_obj:reset()
 	self.pos_x=deck_sprite_pos_x
 	self.pos_y=deck_sprite_pos_y
 end
+-- draw the object at its
+-- current position.
 function item_obj:draw()
+	-- picked up items should be
+	-- drawn by the draw_mouse()
 	if(picked_up_item==self)return
-	-- animation
+	-- animated movement
 	if self.frames > 0 then
 		self.frames -= 1
 		if self.frames == 0 then
@@ -272,7 +276,7 @@ function card_obj:draw_at(x,y)
 	pal()
 end
 
-function card_obj:draw_at_mouse()
+function item_obj:draw_at_mouse()
 	if (not self.picked_up) return
 	self:draw_at(
 		mx-self.picked_up.offx,
@@ -353,6 +357,7 @@ end
 function special_obj:draw_at(x,y)
 	-- draw icon obviously
 	spr(self.sprite_index, x, y)
+	if(picked_up_item==self) return
 	-- draw sell icon if owned
 	if in_shop and contains(shop_options,self) then
 		spr(btn_buy_sprite_index, x , y+self.height)
@@ -1145,6 +1150,7 @@ end
 -- handle mouse-down event
 function mouse_down()
 	hand_collision_down()
+	joker_collision_down()
 end
 
 -- handle mouse-up event
@@ -1587,6 +1593,15 @@ function distribute_hand()
 		end
 end
 
+function distribute_jokers()
+	local x = 15	
+	local y = 4 
+	for joker in all(joker_cards) do
+		joker:place(x,y,5)
+		x += joker.width + draw_hand_gap + 5
+	end
+end
+
 function draw_hand()	
 	if init_draw then
 		distribute_hand()
@@ -1607,6 +1622,9 @@ end
 
 function draw_tooltips(x,y)
 	if picked_up_item  then
+		if picked_up_item.describe ~= nil then
+			picked_up_item:describe()
+		end
 		return -- none of these other
        		-- cards are targets.
 	end
@@ -1717,7 +1735,6 @@ function draw_joker_cards()
 	local x = 15	
 	local y = 4 
 	for joker in all(joker_cards) do
-		joker:place(x,y)
 		joker:draw()
 		x += card_width + draw_hand_gap + 5
 	end
@@ -1798,15 +1815,26 @@ end
 function hand_collision_down()
 	for card in all(hand) do
 		if card:moused() then
-				card:pickup()
-				card.drop_at=hand_collision_up
-				break
+			card:pickup()
+			card.drop_at=mouse_up_card
+			return
+		end
+	end
+end
+
+-- check if joker picked up
+function joker_collision_down()
+	for joker in all(joker_cards) do
+		if joker:moused() then
+			joker:pickup()
+			joker.drop_at=mouse_up_joker
+			return
 		end
 	end
 end
 
 -- drop a dragged card or click
-function hand_collision_up(self,px,py)
+function mouse_up_card(self,px,py)
 	if(self.picked_up.moved) then
 		if py < 50 or my > 102 then
 			return
@@ -1820,6 +1848,21 @@ function hand_collision_up(self,px,py)
 		select_hand(self)
 		update_selected_cards()
 	end
+end
+
+-- drop a dragged joker or click
+function mouse_up_joker(self,px,py)
+	if(self.picked_up.moved) then
+		if py > 30 then 
+			-- dropped outside joker area
+			return
+		end
+		self.pos_x = px
+		self.pos_y = py
+		sort_by_x(joker_cards)
+		distribute_jokers()
+	end
+	-- no op if clicked
 end
 
 function mouse_sprite_collision(sx, sy, sw, sh)
@@ -1903,6 +1946,7 @@ and in_shop == true and money >= special_card.price then
 				money = money - special_card.price
 				sfx(sfx_buy_btn_clicked)
 				add(joker_cards, special_card)
+				distribute_jokers()
 				del(shop_options, special_card)
 			elseif special_card.type == "Joker" and #joker_cards == joker_limit then 
 				sfx(sfx_error_message)
@@ -1957,6 +2001,7 @@ function use_button_clicked()
 end
 
 function sell_button_clicked()
+	if(picked_up_item~=nil) return
 	for tarot in all(tarot_cards) do
 		if mouse_sprite_collision(tarot.pos_x - card_width, tarot.pos_y, card_width, card_height) then
 			sfx(sfx_sell_btn_clicked)
@@ -1970,6 +2015,7 @@ function sell_button_clicked()
 			sfx(sfx_sell_btn_clicked)
 			money = money + calculate_sell_price(joker.price)
 			del(joker_cards, joker)
+			distribute_jokers()
 			update_selected_cards()
 		end
 	end
