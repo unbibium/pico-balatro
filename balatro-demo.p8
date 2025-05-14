@@ -1247,9 +1247,9 @@ end
 
 function update_selected_cards()
 	for card in all(hand) do
-		if card.selected == true and not contains(selected_cards, card) then
+		if card.selected and not contains(selected_cards, card) then
 			add(selected_cards, card)
-		elseif card.selected == false and contains(selected_cards, card) then
+		elseif not card.selected and contains(selected_cards, card) then
 			del(selected_cards, card)	
 		end
 	end
@@ -1866,7 +1866,7 @@ function discard_button_clicked()
 end
 
 function go_next_button_clicked()
-	if mouse_sprite_collision(btn_go_next_pos_x, btn_go_next_pos_y, btn_width, btn_height)	and in_shop == true then
+	if mouse_sprite_collision(btn_go_next_pos_x, btn_go_next_pos_y, btn_width, btn_height)	and in_shop then
 		sfx(sfx_card_select)
 		in_shop = false			
 		shop_options = {}
@@ -1877,15 +1877,15 @@ function go_next_button_clicked()
 end
 
 function reroll_button_clicked()
-	if mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop == true and money >= reroll_price then
+	if mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop and money >= reroll_price then
 		sfx(sfx_buy_btn_clicked)
-		money = money - reroll_price
+		money -= reroll_price
 		shop_options = {}
 		add_cards_to_shop()
 		reroll_price += 1
-	elseif mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop == true and money < reroll_price then
+	elseif mouse_sprite_collision(btn_reroll_pos_x, btn_reroll_pos_y, btn_width, btn_height) and in_shop and money < reroll_price then
 		sfx(sfx_error_message)
-		error_message = "You don't have enough\n money to reroll.\n Get your money up."
+		error_message = "you don't have enough\n money to reroll.\n get your money up."
 	end
 end
 
@@ -1901,7 +1901,7 @@ and in_shop and money >= special_card.price then
 				del(shop_options, special_card)
 			elseif special_card.type == "Joker" and #joker_cards == joker_limit then 
 				sfx(sfx_error_message)
-				error_message = "You have reached \nthe max amount \nof jokers"
+				error_message = "you have reached \nthe max amount \nof jokers"
 			end
 
 			-- Tarot 
@@ -1922,7 +1922,7 @@ and in_shop and money >= special_card.price then
 				end
 			elseif special_card.type == "Tarot" and #tarot_cards == tarot_limit then
 				sfx(sfx_error_message)
-				error_message = "You have reached \nthe max amount \nof tarots"
+				error_message = "you have reached \nthe max amount \nof tarots"
 			end
 
 			-- Planet 
@@ -1934,19 +1934,21 @@ and in_shop and money >= special_card.price then
 			end
 		elseif mouse_sprite_collision(special_card.pos_x, special_card.pos_y + card_height, card_width, card_height) and in_shop and money < special_card.price then
 			sfx(sfx_error_message)
-			error_message = "You don't have enough\n money to buy this.\n Get your money up."
+			error_message = "you don't have enough\n money to buy this.\n get your money up."
 		end
 	end
 end
 
 function use_button_clicked()
 	for tarot in all(tarot_cards) do
-		if mouse_sprite_collision(tarot.pos_x, tarot.pos_y + card_height, card_width, card_height) and #selected_cards > 0 then
+		if mouse_sprite_collision(tarot.pos_x, tarot.pos_y + card_height, card_width, card_height) then
+			if #selected_cards > 0 then
 			sfx(sfx_use_btn_clicked)
 			tarot.effect(tarot)
-		elseif mouse_sprite_collision(tarot.pos_x, tarot.pos_y + card_height, card_width, card_height) and #selected_cards == 0 then
-			sfx(sfx_error_message)
-			error_message = "Cards must be selected\n to use this tarot card"
+			else
+				sfx(sfx_error_message)
+				error_message = "Cards must be selected\n to use this tarot card"
+			end
 		end
 	end
 end
@@ -1955,7 +1957,7 @@ function sell_button_clicked()
 	for tarot in all(tarot_cards) do
 		if mouse_sprite_collision(tarot.pos_x - card_width, tarot.pos_y, card_width, card_height) then
 			sfx(sfx_sell_btn_clicked)
-			money = money + calculate_sell_price(tarot.price)
+			money += calculate_sell_price(tarot.price)
 			del(tarot_cards, tarot)
 		end
 	end
@@ -1963,7 +1965,7 @@ function sell_button_clicked()
 	for joker in all(joker_cards) do
 		if mouse_sprite_collision(joker.pos_x - card_width, joker.pos_y, card_width, card_height) then
 			sfx(sfx_sell_btn_clicked)
-			money = money + calculate_sell_price(joker.price)
+			money += calculate_sell_price(joker.price)
 			del(joker_cards, joker)
 			update_selected_cards()
 		end
