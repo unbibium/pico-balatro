@@ -41,7 +41,7 @@ tarot_cards = {}
 hand_types = {
 	["flush five"] = {base_chips = 160, base_mult = 16, level = 1},
 	["flush house"] = {base_chips = 140, base_mult = 14, level = 1},
-	["fixe of a kind"] = {base_chips = 120, base_mult = 12, level = 1},
+	["five of a kind"] = {base_chips = 120, base_mult = 12, level = 1},
 	["royal flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["straight flush"] = {base_chips = 100, base_mult = 8, level = 1},
 	["four of a kind"] = {base_chips = 60, base_mult = 7, level = 1},
@@ -153,6 +153,7 @@ function item_obj:reset()
 	self.pos_y=deck_sprite_pos_y
 end
 function item_obj:draw()
+	if(picked_up_item==self)return
 	-- animation
 	if self.frames > 0 then
 		self.frames -= 1
@@ -207,7 +208,7 @@ end
 -- more than 1 pixel between
 -- mouse_down and mouse_up
 function item_obj:detect_moved()
-	if(self.picked_up==nil) return
+	if(not self.picked_up) return
 	if(self.picked_up.moved) return
 	if abs(mx-self.picked_up.mx)>1
 		or abs(my-self.picked_up.my)>1
@@ -218,7 +219,7 @@ end
 
 function item_obj:drop()
 	if(picked_up_item!=self) return
-	if(self.picked_up==nil) return
+	if(not self.picked_up) return
 	self:drop_at(
 		mx-self.picked_up.offx,
 		my-self.picked_up.offy
@@ -259,13 +260,15 @@ function card_obj:draw_at(x,y)
 	spr(self.bgtile,x,y,1,2)
 	-- overlay rank
 	spr(self.sprite_index, x, y)
-	-- overlay suit
-	spr(suit_sprites[self.suit],x,y+8)
+	-- if not wild, overlay suit
+ if self.bgtile != 44 then
+		spr(suit_sprites[self.suit],x,y+8)
+	end
 	pal()
 end
 
 function card_obj:draw_at_mouse()
-	if (self.picked_up == nil) return
+	if (not self.picked_up) return
 	self:draw_at(
 		mx-self.picked_up.offx,
 		my-self.picked_up.offy
@@ -290,7 +293,7 @@ function card_obj:set_rank(r)
 end
 
 function card_obj:plus_order(d)
-	return ((self.order+d-1) % 13) + 1
+	return ((self.order-d-1) % 13) + 1
 end
 
 function card_obj:add_rank(d)
@@ -299,12 +302,27 @@ function card_obj:add_rank(d)
 end
 
 function card_obj:is_face()
-	-- todo: implement pareidolia
+	if(has_joker('pareidolia')) return true
 	return contains({'k','j','q'},self.rank)
 end
 
+function card_obj:matches_suit(other)
+	-- 44=wild card
+	if(other.bgtile==44)return true
+	-- compare normally
+	return self:is_suit(other.suit)
+end
+
 function card_obj:is_suit(target)
-	-- todo: implement smeared joker
+	-- 44=wild card
+	if(self.bgtile==44)return true
+	if has_joker('smeared joker') then
+		if target=='s' or target=='c' then
+			return self.suit=='s' or self.suit=='c'
+		else
+			return self.suit=='d' or self.suit=='h'
+		end
+	end
 	return self.suit == target
 end
 
@@ -599,7 +617,28 @@ special_cards = {
 			end,
 			sprite_index = 138, 
 			description = "adds a random amount of chips.\nlowest being 0, highest being 150",
-		})
+		}),
+		joker_obj:new({
+			name="pareidolia",
+			price=5,
+			-- effect in card_obj:is_face
+			sprite_index=182,
+			description = "all cards count as face cards"
+		}),
+		joker_obj:new({
+			name="smeared joker",
+			price=7,
+			-- effect in card_obj:is_suit
+			sprite_index=181,
+			description = "clubs and spades are the same suit.\nhearts and diamonds are the same suit."
+		}),
+		joker_obj:new({
+			name="four fingers",
+			price=7,
+			-- effect in contains_flush
+			sprite_index=183,
+			description = "all flushes and straights can\nbe made with 4 cards."
+		}),
 	},
 	Planets = {
 		planet_obj:new({
@@ -700,6 +739,17 @@ special_cards = {
 			end),
 			sprite_index = 170,
 			description = "converts 1 card into a\nsteel card, which grants x1.5 mult \nif card is left in hand",
+		}),
+		tarot_obj:new({
+			name = "the lovers",
+			price = 2,
+			effect = card_enhancement(1,function(card,self)
+				card.bgtile = 44
+				card.when_held_in_hand = do_nothing
+				card.when_held_at_end = do_nothing
+			end),
+			sprite_index = 169,
+			description = "converts 1 card into a\nwild card, which matches\nevery suit",
 		}),
 		tarot_obj:new({
 			name = "strength",
@@ -803,6 +853,13 @@ special_cards = {
 		})
 	}
 }
+
+function has_joker(name)
+	for j in all(joker_cards) do
+		if(j.name==name) return j
+	end
+	return false
+end
 
 -- if set, then resume this
 -- coroutine in main loop
@@ -1021,8 +1078,8 @@ end
 btn_frames=0
 
 function _update()
-    mx = stat(32)
-    my = stat(33)
+	mx = stat(32)
+	my = stat(33)
  -- check score_hand animation
 	if costatus(animation)!='dead' then
 		coresume(animation)
@@ -1044,7 +1101,7 @@ function _update()
 	if btn(5) then
 		if btn_frames==0 then 
 			mouse_down()
-		elseif picked_up_item != nil then
+		elseif picked_up_item then
 			-- detect drag action
 			picked_up_item:detect_moved()
 		end
@@ -1088,7 +1145,7 @@ end
 -- handle mouse-up event
 -- process clicks and drags
 function mouse_up()
-	if(picked_up_item == nil) return
+	if(not picked_up_item) return
 	picked_up_item:drop()
 	picked_up_item=nil
 end
@@ -1153,6 +1210,8 @@ end
 -- yield commands can be used
 function score_hand()
 	pause(5) -- wait for sfx
+ -- card are processed left-to-right
+	sort_by_x(scored_cards)
 	-- Score cards 
 	for card in all(scored_cards) do
 		add_chips( card.chips + card.effect_chips, card )
@@ -1221,7 +1280,7 @@ function check_hand_type()
 		return "none"
 	end
 	local flush=false
- if #selected_cards>=5 then
+ if #selected_cards>=4 then
 		flush=contains_flush(selected_cards)
 	end
 	local cf = card_frequencies()
@@ -1479,7 +1538,7 @@ function add_cards_to_shop()
 
 	-- TODO TEST If you want to test specific cards, use below 
 	--add(shop_options, get_special_card_by_name("raised fist", "Jokers"))
-	--add(shop_options, get_special_card_by_name("the empress", "Tarots"))
+	--add(shop_options, get_special_card_by_name("death", "Tarots"))
 end
 
 function create_view_of_deck(table)
@@ -1535,14 +1594,14 @@ end
 
 function draw_mouse(x, y)
 	palt(0x8000)
-	if picked_up_item != nil then
+	if picked_up_item then
 		picked_up_item:draw_at_mouse()
 	end
 	spr(192, x, y)
 end
 
 function draw_tooltips(x,y)
-	if picked_up_item != nil then
+	if picked_up_item  then
 		return -- none of these other
        		-- cards are targets.
 	end
@@ -1735,17 +1794,15 @@ function hand_collision_down()
 	for card in all(hand) do
 		if card:moused() then
 				card:pickup()
+				card.drop_at=hand_collision_up
 				break
 		end
 	end
 end
 
---function hand_collision_up()
-function card_obj:drop_at(px,py)
-	-- todo: detect movement
+-- drop a dragged card or click
+function hand_collision_up(self,px,py)
 	if(self.picked_up.moved) then
-		-- todo: drop in hand and re-sort
-			error_message=tostr(py)
 		if py < 50 or my > 102 then
 			return
 		end
@@ -1753,7 +1810,7 @@ function card_obj:drop_at(px,py)
 		self.pos_y = py
 		sort_by_x(hand)
 		distribute_hand()
-	else
+	else -- click, not drop
 		sfx(sfx_card_select)
 		select_hand(self)
 		update_selected_cards()
@@ -1908,6 +1965,7 @@ function sell_button_clicked()
 			sfx(sfx_sell_btn_clicked)
 			money = money + calculate_sell_price(joker.price)
 			del(joker_cards, joker)
+			update_selected_cards()
 		end
 	end
 end
@@ -1980,14 +2038,14 @@ function contains(table, value)
 end
 
 function contains_flush(cards)
-	local suit_arr = {}
+	local run_goal=5
+	if(has_joker("four fingers"))run_goal=4
+	if(#cards<run_goal) return
+	local first=cards[1]
+	local ct=0
 	for card in all(cards) do 
-		add(suit_arr, card.suit)
-	end
-	for suit in all(suit_arr) do
-		if count(suit_arr, suit) == 5 then				
-			return true
-		end
+		if(card:matches_suit(first)) ct+=1
+		if(ct>=run_goal)return true
 	end
 	return false
 end
@@ -2007,6 +2065,7 @@ end
 function contains_straight(cf)
 	-- todo: implement shortcut joker
 	local run_goal=5
+	if(has_joker("four fingers"))run_goal=4
 	if #selected_cards<run_goal then
 		return false
 	end
@@ -2061,24 +2120,6 @@ function sort_by(property,cards)
 	end
 end
 
-function get_rank_add(rank,inc)
-	idx=find_rank_index(rank)
-	result=((idx+inc-1)%#ranks)+1
-	return result
-end
-
-function find_rank_index(rank)
-	if type(rank) == "string" then
-		for i,r in pairs(ranks) do
-			if(r.rank==rank) return i
-		end
-	else
-		for i,r in pairs(ranks) do
-			if(r==rank) return i
-		end
-	end
-end
-
 function get_special_card_by_name(name, type)
 	for special_card_type, v in pairs(special_cards) do		
 		if special_card_type == type then
@@ -2095,7 +2136,6 @@ end
 function change_to_suit(suit, tarot)
 	if #selected_cards <= 3 then
 		for card in all(selected_cards) do
-			card.sprite_index = card.rank.sprite_index
 			card.suit = suit 
 			card.selected = false
 			card.pos_y = card.pos_y + 10
@@ -2215,14 +2255,14 @@ cccccccccccccccceeeeeeeeeeeeeeee00000000000000008888888888888888bbbbbbbbbbbbbbbb
 7788877778888877775999577778777778777888777787777777887700000000ccccc77cccc7c77c777c77777777778777777c777777797755888855488d8584
 7777777778777877777599577777777778787778777877777777787700000000c77cc77c77c7c77c777777777777788777777c777777797755855855488d8584
 7777777778888877777599577778777778777888778888877788887700000000cccccccc77c7cccc777c77777777777777777777777777775555555566666666
-ccccccccccccccccc777c777777ccccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
-ccccccccccccccccc7c7c7c77c7ccccccccccccc8c88c8cc7c7c7c7cc7c7c7c7cccccccc7c7ccccc000000000000000000000000000000000000000000000000
-ccc777ccc777c777c777c77777777ccccccccccc888888cc7777777cc777c777cccccccc777ccccc000000000000000000000000000000000000000000000000
-ccc7c7ccc7c7c7c7cccccccccc7c7ccccccc7777888888cccccccccccccccccccccc888877cc8888000000000000000000000000000000000000000000000000
-ccc7c7ccc7c7c7c7c777c777cc77777cccc777778c88c8cccc77777cc777c777ccc888887c788888000000000000000000000000000000000000000000000000
-ccc777ccc777c777c7c7c7c7cccc7c7ccc77777788888888cc7c7c7cc7c7c7c7cc888888cc888888000000000000000000000000000000000000000000000000
-ccccccccccccccccc7c7c7c7cccc777cc7777777ccccc8c8cc7c7c7cc777c777c8888888c8888888000000000000000000000000000000000000000000000000
-ccccccccccccccccc777c777cccccccc77777777ccccc888cc77777ccccccccc8888888888888888000000000000000000000000000000000000000000000000
+ccccccccccccccccc777c777777ccccccccccccc888888cc7777777cc777c777cccccccc777ccccc0000000000000000000000000000000000000000ffffffff
+ccccccccccccccccc7c7c7c77c7ccccccccccccc8c88c8cc7c7c7c7cc7c7c7c7cccccccc7c7ccccc0000000000000000000000000000000000000000f55f55ff
+ccc777ccc777c777c777c77777777ccccccccccc888888cc7777777cc777c777cccccccc777ccccc0000000000000000000000000000000000000000f5ff55ff
+ccc7c7ccc7c7c7c7cccccccccc7c7ccccccc7777888888cccccccccccccccccccccc888877cc88880000000000000000000000000000000000000000f5ff55ff
+ccc7c7ccc7c7c7c7c777c777cc77777cccc777778c88c8cccc77777cc777c777ccc888887c7888880000000000000000000000000000000000000000f55ff5ff
+ccc777ccc777c777c7c7c7c7cccc7c7ccc77777788888888cc7c7c7cc7c7c7c7cc888888cc8888880000000000000000000000000000000000000000f55ff5ff
+ccccccccccccccccc7c7c7c7cccc777cc7777777ccccc8c8cc7c7c7cc777c777c8888888c88888880000000000000000000000000000000000000000f55f55ff
+ccccccccccccccccc777c777cccccccc77777777ccccc888cc77777ccccccccc88888888888888880000000000000000000000000000000000000000ffffffff
 f777f7778888888f9999999fcccccccfdddddddfffffffffffffffffafafaaaf777f777fffffffffffffffff0000000000000000000000000000000000000000
 f7f7f7f78f8f8f8f9f9f9f9fcfcfcfcfdfdfdfdfff8888ffffccccfffaffffaf7f7f7f7ffaaaa77ff666677f0000000000000000000000000000000000000000
 f7f7f7f78888888f9999999fcccccccfdddddddfff8ff8ffffcffcffafafaaff777f777ffaaaaa7ff666667f0000000000000000000000000000000000000000
@@ -2231,14 +2271,14 @@ ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaaaaf55555fffaaaaaaf
 f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffaaaaafffffdddffff9aaaaaff566666f0000000000000000000000000000000000000000
 f7f7f7f7ffffffffffffffffffffffffffffffffff8ff8ffffcffcffafafafffffdddffff99aaaaff556666f0000000000000000000000000000000000000000
 f777f777ffffffffffffffffffffffffffffffffff8888ffffccccffafafafffffdddfffffffffffffffffff0000000000000000000000000000000000000000
-00000000788788777779777777ccc777777d77770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000088a8a88777c9c777773c377777cdc7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000008888888779999977ccccccc77ddddd770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000008a888a879c999c97c3c7c3c7d8ddd8d70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000078aaa87779ccc977cc333cc77d888d770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000007788877777999777777c7777777d77770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000777877777779777777ccc77777ddd7770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000777777777777777777777777777777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000788788777779777777ccc777777d7777777777777777777f777777770000000000000000000000000000000000000000000000000000000000000000
+0000000088a8a88777c9c777773c377777cdc777778787777067706f77f7f7770000000000000000000000000000000000000000000000000000000000000000
+000000008888888779999977ccccccc77ddddd77778787777067706f77f7f7f70000000000000000000000000000000000000000000000000000000000000000
+000000008a888a879c999c97c3c7c3c7d8ddd8d7778887777067706f77f7f7f70000000000000000000000000000000000000000000000000000000000000000
+0000000078aaa87779ccc977cc333cc77d888d77788888777677767f77fffff70000000000000000000000000000000000000000000000000000000000000000
+000000007788877777999777777c7777777d7777788888777770777ff7fffff70000000000000000000000000000000000000000000000000000000000000000
+00000000777877777779777777ccc77777ddd777788888777776777f7ffffff70000000000000000000000000000000000000000000000000000000000000000
+000000007777777777777777777777777777777777888777ffffffff777fff770000000000000000000000000000000000000000000000000000000000000000
 01100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 17710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 17771000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
